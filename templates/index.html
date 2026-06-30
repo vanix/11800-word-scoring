@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電腦軟體應用丙級 文書處理評分系統</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+  <h1>電腦軟體應用丙級 · 文書處理評分</h1>
+  <div class="data-links">
+    <a href="/data/電丙題本.pdf" target="_blank">電丙題本</a>
+    <a href="/data/電丙檔案.zip" target="_blank">術科檔案</a>
+    <a href="https://www.youtube.com/playlist?list=PLN9g1rvyo05rYFCEqocboBP6U8XdOl2w9" target="_blank">教學影片</a>
+  </div>
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash">{{ messages[0] }}</div>
+    {% endif %}
+  {% endwith %}
+  <form action="/score" method="post" enctype="multipart/form-data" class="upload-form">
+    <div class="form-group">
+      <label for="exam_id">選擇題組：</label>
+      <select name="exam_id" id="exam_id" required>
+        <option value="">— 請選擇 —</option>
+        {% for e in exams %}
+        <option value="{{ e.id }}">{{ e.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="student_name">姓名：</label>
+      <input type="text" name="student_name" id="student_name" placeholder="請輸入姓名" required>
+    </div>
+    <div class="form-group ip-row">
+      <label>用戶端 IP：</label>
+      <span class="ip-text">{{ client_ip }}</span>
+    </div>
+    <div class="form-group">
+      <label for="file">上傳作答檔案 (.docx)：</label>
+      <input type="file" name="file" id="file" accept=".docx" required>
+    </div>
+    <button type="submit">開始評分</button>
+  </form>
+</div>
+</body>
+</html>

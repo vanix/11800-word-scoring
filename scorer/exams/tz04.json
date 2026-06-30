@@ -1,0 +1,27 @@
+{
+  "name": "題組四",
+  "ref_file": "tz04_ref.docx",
+  "self_input": "",
+  "checks": [
+    {"id": "orientation", "symbol": "★", "points": 50, "label": "橫向列印", "expected": "landscape"},
+    {"id": "page_size", "symbol": "●", "points": 10, "label": "A4尺寸", "expected": {"w": "16838", "h": "11906"}},
+    {"id": "margins", "symbol": "●", "points": 10, "label": "邊界3cm", "expected": {"top": "1701", "bottom": "1701", "left": "1701", "right": "1701"}},
+    {"id": "justify", "symbol": "●", "points": 10, "label": "左右對齊"},
+    {"id": "header_font", "symbol": "●", "points": 10, "label": "頁首字型"},
+    {"id": "header_content", "symbol": "●", "points": 10, "label": "頁首內容"},
+    {"id": "header_pagenum", "symbol": "●", "points": 10, "label": "頁首頁碼"},
+    {"id": "title_format", "symbol": "●", "points": 10, "label": "標題格式", "cjk": "細明體", "size": "32", "border": true, "italic": true, "shading": false},
+    {"id": "columns", "symbol": "●", "points": 10, "label": "二欄設定"},
+    {"id": "para_spacing", "symbol": "●", "points": 10, "label": "段落間隔"},
+    {"id": "image", "symbol": "●", "points": 10, "label": "圖形格式"},
+    {"id": "table_position", "symbol": "●", "points": 10, "label": "表格位置"},
+    {"id": "fullwidth_parens", "symbol": "●", "points": 10, "label": "全型括號"},
+    {"id": "body_fonts", "symbol": "△", "points": 5, "label": "本文字型大小"},
+    {"id": "title_text", "symbol": "※", "points": 3, "label": "標題文字"},
+    {"id": "para_formats", "symbol": "△", "points": 5, "label": "段落格式"},
+    {"id": "para_split", "symbol": "△", "points": 5, "label": "段落分行"},
+    {"id": "brackets", "symbol": "※", "points": 3, "label": "【】未刪除"},
+    {"id": "table_content", "symbol": "※", "points": 3, "label": "表格內容"},
+    {"id": "self_input_font", "symbol": "△", "points": 5, "label": "自行輸入字型"}
+  ]
+}

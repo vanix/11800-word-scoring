@@ -1,0 +1,9 @@
+[Installation]
+cd ~/Desktop/電軟丙級評分網頁
+pip install -r requirements.txt
+python3 app.py
+全部原始碼只用標準函式庫（zipfile、xml.etree.ElementTree、re、json、csv、os、datetime），唯獨 Flask 是第三方套件。Python 3.14 相容沒問題。
+
+[Execution]
+cd ~/Desktop/電軟丙級評分網頁s
+python3 app.py

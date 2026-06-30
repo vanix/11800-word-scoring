@@ -1,0 +1,48 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif; background: #f5f7fa; color: #333; line-height: 1.6; }
+.container { max-width: 860px; margin: 40px auto; padding: 0 20px; }
+h1 { text-align: center; font-size: 22px; margin-bottom: 10px; color: #1a1a2e; }
+.data-links { text-align: center; margin-bottom: 30px; display: flex; justify-content: center; gap: 16px; }
+.data-links a { color: #2563eb; text-decoration: none; font-size: 15px; font-weight: 600; padding: 4px 16px; border: 1px solid #2563eb; border-radius: 6px; }
+.data-links a:hover { background: #eff6ff; }
+
+/* Upload form */
+.upload-form { background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #555; }
+select, input[type="file"] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; background: #fff; }
+button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; }
+button:hover { background: #1d4ed8; }
+.ip-row { display: flex; align-items: center; gap: 12px; }
+.ip-text { font-size: 16px; font-weight: 600; color: #1a1a2e; background: #f0f4ff; padding: 4px 14px; border-radius: 4px; }
+.flash { background: #fef3c7; color: #92400e; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
+
+/* Score summary */
+.score-summary { text-align: center; margin-bottom: 28px; }
+.score-badge { display: inline-block; width: 120px; height: 120px; line-height: 120px; border-radius: 50%; font-size: 36px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+.score-badge small { font-size: 18px; }
+.score-badge.pass { background: linear-gradient(135deg, #059669, #10b981); }
+.score-badge.fail { background: linear-gradient(135deg, #dc2626, #ef4444); }
+.score-stats { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.stat { background: #fff; padding: 6px 16px; border-radius: 20px; font-size: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.stat.pass-count { color: #059669; }
+.stat.fail-count { color: #dc2626; }
+.verdict { font-weight: 700; }
+.verdict.pass { color: #059669; }
+.verdict.fail { color: #dc2626; }
+
+/* Results table */
+.result-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+.result-table th { background: #1a1a2e; color: #fff; padding: 12px 16px; text-align: left; font-size: 13px; }
+.result-table td { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+.result-table tr.pass td { background: #f0fdf4; }
+.result-table tr.fail td { background: #fef2f2; }
+.result-table .item { font-weight: 500; }
+.result-table .status { font-weight: 700; width: 60px; }
+.result-table tr.pass .status { color: #059669; }
+.result-table tr.fail .status { color: #dc2626; }
+.result-table .deduct { width: 50px; text-align: center; font-weight: 600; }
+.result-table tr.fail .deduct { color: #dc2626; }
+.result-table .reason { color: #666; font-size: 13px; max-width: 500px; word-break: break-all; }
+.btn-back { display: inline-block; margin-top: 20px; padding: 10px 24px; background: #fff; color: #2563eb; border: 1px solid #2563eb; border-radius: 6px; text-decoration: none; font-weight: 500; }
+.btn-back:hover { background: #eff6ff; }

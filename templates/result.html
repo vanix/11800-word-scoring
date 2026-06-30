@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>評分結果 - {{ exam_name }}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+  <h1>{{ exam_name }} · 評分結果</h1>
+  {% if saved_name %}
+  <p style="text-align:center;color:#666;font-size:14px;">已存檔：{{ saved_name }}</p>
+  {% endif %}
+
+  <div class="score-summary">
+    <div class="score-badge {% if summary.score >= 60 %}pass{% else %}fail{% endif %}">
+      {{ summary.score }}<small>/100</small>
+    </div>
+    <div class="score-stats">
+      <span class="stat pass-count">通過 {{ summary.passed }}</span>
+      <span class="stat fail-count">違規 {{ summary.failed }}</span>
+      <span class="stat">扣分 {{ summary.total_deduct }}</span>
+      <span class="stat verdict {% if summary.score >= 60 %}pass{% else %}fail{% endif %}">
+        {{ '及格' if summary.score >= 60 else '不及格' }}
+      </span>
+    </div>
+  </div>
+
+  <table class="result-table">
+    <thead>
+      <tr>
+        <th>核對項目</th>
+        <th>結果</th>
+        <th>扣分</th>
+        <th>說明</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in summary.results %}
+      <tr class="{{ 'pass' if r.passed else 'fail' }}">
+        <td class="item">{{ r.symbol }} {{ r.label }}</td>
+        <td class="status">{{ 'PASS' if r.passed else 'FAIL' }}</td>
+        <td class="deduct">{{ r.deduct }}</td>
+        <td class="reason">{{ r.reason | replace('\n', '<br>') | safe }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <a href="/" class="btn-back">返回上傳頁面</a>
+</div>
+</body>
+</html>
