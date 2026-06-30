@@ -1,9 +1,46 @@
-[Installation]
-cd ~/Desktop/電軟丙級評分網頁
-pip install -r requirements.txt
-python3 app.py
-全部原始碼只用標準函式庫（zipfile、xml.etree.ElementTree、re、json、csv、os、datetime），唯獨 Flask 是第三方套件。Python 3.14 相容沒問題。
+# 11800 電腦軟體應用丙級 · 文書處理評分系統
 
-[Execution]
-cd ~/Desktop/電軟丙級評分網頁s
-python3 app.py
+自動評分 Word (.docx) 作答檔案的 Flask 網頁應用，對應職類編號 11800 電腦軟體應用丙級。
+
+## 功能
+
+- 支援 5 個題組（tz01–tz05）
+- 自動檢查版面、字型、段落、表格、圖片、頁首尾等 19 項核對項目
+- 扣分制評分，滿分 100，60 分及格
+- 上傳記錄自動寫入 `uploads/submissions.csv`
+
+本專案提供一個基於 Flask 的網頁介面，讓學生上傳 Word 作答檔案後自動比對參考答案進行評分，適用於 **電腦軟體應用丙級** 檢定的 **文書處理** 題組（目前僅支援題組 1~5）。
+
+## 安裝與執行
+
+```bash
+pip install flask
+python app.py
+```
+
+開啟瀏覽器 http://localhost:5000
+
+如需區域網路連線，已預設綁定 `0.0.0.0`，其他電腦以 `http://你的IP:5000` 連線即可。
+
+## 依賴
+
+僅 Flask 為第三方套件，其餘皆使用 Python 標準函式庫：
+`zipfile`、`xml.etree.ElementTree`、`re`、`json`、`csv`、`os`、`datetime`
+
+相容 Python 3.14。
+
+## 專案結構
+
+```
+11800-word-scoring/
+├── app.py              # Flask 主程式
+├── scorer/
+│   ├── engine.py       # 評分引擎
+│   ├── parser.py       # .docx 解析器
+│   ├── checks.py       # 檢查函式（19 項）
+│   └── exams/          # 各題組設定檔與參考答案
+├── templates/          # HTML 模板
+├── static/             # CSS 樣式
+├── data/               # 題本與術科檔案
+└── uploads/            # 上傳檔案與評分記錄
+```
