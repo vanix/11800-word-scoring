@@ -127,7 +127,7 @@ def check_header_content(student, ref, cfg):
                 pass  # Simplified check
     return PASS
 
-# ── ● 頁首頁碼 ─────────────────────────────────────
+# ── ● 頁碼 ──────────────────────────────────────────
 def _has_page_number(hf):
     for zone in ('header', 'footer'):
         el = hf.get(zone)
@@ -138,12 +138,26 @@ def _has_page_number(hf):
     return False
 
 def check_header_pagenum(student, ref, cfg):
-    hf = student.parse_header_footer()
-    if not hf.get('header') and not hf.get('footer'):
-        return (10, '無頁首也無頁尾')
-    if not _has_page_number(hf):
-        return (10, '無頁碼')
+    if ref is None:
+        return (10, '無參考答案可比對')
+    ref_hf = ref.parse_header_footer()
+    stu_hf = student.parse_header_footer()
+    for zone in ('header', 'footer'):
+        if _ref_has_page_in_zone(ref_hf, zone):
+            if not stu_hf.get(zone):
+                return (10, f'缺少頁尾' if zone == 'footer' else '缺少頁首')
+            stu_el = stu_hf.get(zone)
+            stu_text = stu_el.get('text', '')
+            if 'FIELD:PAGE' not in stu_text and '第' not in stu_text and 'Page' not in stu_text and 'page' not in stu_text:
+                return (10, f'頁尾無頁碼' if zone == 'footer' else '頁首無頁碼')
     return PASS
+
+def _ref_has_page_in_zone(hf, zone):
+    el = hf.get(zone)
+    if not el:
+        return False
+    text = el.get('text', '')
+    return 'FIELD:PAGE' in text or '第' in text or 'Page' in text or 'page' in text
 
 # ── ● 標題格式 ─────────────────────────────────────
 def check_title_format(student, ref, cfg):
@@ -554,6 +568,31 @@ def check_self_input_font(student, ref, cfg):
         return PASS
     return (5, '找不到自行輸入段落')
 
+# ── ● 取代文字 ─────────────────────────────────────
+def check_replacement(student, ref, cfg):
+    old = cfg.get('old', '')
+    new = cfg.get('new', '')
+    require_underline = cfg.get('underline', False)
+    issues = []
+    for p in student.parse_paragraphs():
+        if p['type'] != 'para':
+            continue
+        text = p.get('text', '')
+        if old and old in text:
+            issues.append(f'尚有「{old}」未取代')
+        if new and new in text:
+            if require_underline:
+                found_underline = False
+                for t, rp in p.get('runs', []):
+                    if new in t and rp.get('u', '') not in ('', 'none'):
+                        found_underline = True
+                        break
+                if not found_underline:
+                    issues.append(f'「{new}」無底線')
+    if issues:
+        return (10, '; '.join(issues))
+    return PASS
+
 # ── 註冊表 ──────────────────────────────────────────
 REGISTRY = {
     'orientation': check_orientation,
@@ -576,4 +615,5 @@ REGISTRY = {
     'table_content': check_table_content,
     'self_input_font': check_self_input_font,
     'para_formats': check_para_formats,
+    'replacement': check_replacement,
 }

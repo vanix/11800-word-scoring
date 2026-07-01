@@ -1,7 +1,7 @@
 {
   "name": "題組三",
   "ref_file": "tz03_ref.docx",
-  "self_input": "",
+  "self_input": "行業萎縮",
   "checks": [
     {"id": "orientation", "symbol": "★", "points": 50, "label": "直向列印", "expected": "portrait"},
     {"id": "page_size", "symbol": "●", "points": 10, "label": "A4尺寸", "expected": {"w": "11906", "h": "16838"}},

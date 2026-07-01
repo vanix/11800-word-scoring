@@ -1,7 +1,7 @@
 {
   "name": "題組五",
   "ref_file": "tz05_ref.docx",
-  "self_input": "",
+  "self_input": "對考生而言",
   "checks": [
     {"id": "orientation", "symbol": "★", "points": 50, "label": "橫向列印", "expected": "landscape"},
     {"id": "page_size", "symbol": "●", "points": 10, "label": "A4尺寸", "expected": {"w": "16838", "h": "11906"}},

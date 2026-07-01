@@ -1,7 +1,7 @@
 {
   "name": "題組一",
   "ref_file": "tz01_ref.docx",
-  "self_input": "",
+  "self_input": "由此可知",
   "checks": [
     {"id": "orientation", "symbol": "★", "points": 50, "label": "直向列印", "expected": "portrait"},
     {"id": "page_size", "symbol": "●", "points": 10, "label": "A4尺寸", "expected": {"w": "11906", "h": "16838"}},
@@ -9,6 +9,7 @@
     {"id": "justify", "symbol": "●", "points": 10, "label": "左右對齊"},
     {"id": "header_font", "symbol": "●", "points": 10, "label": "頁首字型"},
     {"id": "header_content", "symbol": "●", "points": 10, "label": "頁首內容"},
+    {"id": "header_pagenum", "symbol": "●", "points": 10, "label": "頁碼"},
     {"id": "table_position", "symbol": "●", "points": 10, "label": "表格位置"},
     {"id": "title_format", "symbol": "●", "points": 10, "label": "標題格式", "cjk": "細明體", "size": "32", "border": true, "italic": false, "shading": true},
     {"id": "columns", "symbol": "●", "points": 10, "label": "二欄設定"},
@@ -21,6 +22,7 @@
     {"id": "para_split", "symbol": "△", "points": 5, "label": "段落分行"},
     {"id": "brackets", "symbol": "※", "points": 3, "label": "【】未刪除"},
     {"id": "table_content", "symbol": "※", "points": 3, "label": "表格內容"},
-    {"id": "self_input_font", "symbol": "△", "points": 5, "label": "自行輸入字型"}
+    {"id": "self_input_font", "symbol": "△", "points": 5, "label": "自行輸入字型"},
+    {"id": "replacement", "symbol": "●", "points": 10, "label": "Amazon取代", "old": "Amazon", "new": "亞瑪森", "underline": true}
   ]
 }
