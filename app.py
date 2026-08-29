@@ -45,6 +45,8 @@ def score():
         flash('請選擇題組')
         return redirect(url_for('index'))
 
+    stage = request.form.get('stage', '').strip()
+
     student_name = request.form.get('student_name', '').strip()
     if not student_name:
         flash('請輸入姓名')
@@ -71,7 +73,7 @@ def score():
 
     try:
         engine = ScoringEngine(exam_id, tmp_path)
-        engine.run()
+        engine.run(stage=stage)
         summary = engine.summary()
         engine.cleanup()
         score = summary['score']

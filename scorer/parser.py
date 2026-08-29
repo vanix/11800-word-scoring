@@ -139,6 +139,10 @@ def para_runs(p_elem):
         instrText = r.find(w('instrText'))
         if instrText is not None and instrText.text:
             t = f'{{INSTR:{instrText.text}}}'
+        ptab = r.find(w('ptab'))
+        if ptab is not None:
+            props['ptab'] = ptab.get(f'{{{W}}}alignment', '')
+            props['ptab_rel'] = ptab.get(f'{{{W}}}relativeTo', '')
         result.append((t, props))
     return result
 def classify_text(text):
@@ -161,10 +165,44 @@ class DocxParser:
         self.zip = zipfile.ZipFile(path)
         self.doc_xml = self._read_xml('word/document.xml')
         self.styles_xml = self._read_xml('word/styles.xml')
-        self.header_xml = self._read_xml('word/header1.xml')
-        self.footer_xml = self._read_xml('word/footer1.xml')
+        self._rels = self._read_rels()
+        self.header_xml = self._read_default_hf('header')
+        self.footer_xml = self._read_default_hf('footer')
         self.footnotes_xml = self._read_xml('word/footnotes.xml')
         self.body = self.doc_xml.find(f'.//{w("body")}')
+
+    def _read_rels(self):
+        rels = {}
+        el = self._read_xml('word/_rels/document.xml.rels')
+        if el is None:
+            return rels
+        for rel in el:
+            id_ = rel.get('Id')
+            target = rel.get('Target', '')
+            if id_ and ('header' in target or 'footer' in target):
+                if target.startswith('/'):
+                    target = target.lstrip('/')
+                else:
+                    target = 'word/' + target
+                rels[id_] = target
+        return rels
+
+    def _read_default_hf(self, kind, fallback_tpl='word/{kind}1.xml'):
+        target = None
+        if self.doc_xml is not None:
+            sectPrs = self.doc_xml.findall(f'.//{w("sectPr")}')
+            for sectPr in reversed(sectPrs):
+                for ref in sectPr.findall(w(f'{kind}Reference')):
+                    if ref.get(f'{{{W}}}type', '') in ('default', '', None):
+                        rid = ref.get(f'{{{R}}}id')
+                        target = self._rels.get(rid)
+                        if target:
+                            break
+                if target:
+                    break
+        if not target:
+            target = f'word/{kind}1.xml'
+        return self._read_xml(target)
 
     def _read_xml(self, fname):
         try:
@@ -262,7 +300,13 @@ class DocxParser:
         return paras
 
     def _parse_table(self, tbl_elem):
-        info = {'rows': [], 'cols': 0, 'text': ''}
+        info = {'rows': [], 'cols': 0, 'text': '', 'widths': []}
+        grid = tbl_elem.find(f'.//{w("tblGrid")}')
+        if grid is not None:
+            for gc in grid.findall(w('gridCol')):
+                wv = gc.get(f'{{{W}}}w')
+                if wv is not None:
+                    info['widths'].append(int(wv))
         rows = tbl_elem.findall(f'.//{w("tr")}')
         full_texts = []
         for row in rows:
@@ -274,6 +318,12 @@ class DocxParser:
                 tcPr = cell.find(w('tcPr'))
                 tc_props = {}
                 if tcPr is not None:
+                    vMerge = tcPr.find(w('vMerge'))
+                    if vMerge is not None:
+                        tc_props['vMerge'] = vMerge.get(f'{{{W}}}val', 'continue')
+                    gridSpan = tcPr.find(w('gridSpan'))
+                    if gridSpan is not None:
+                        tc_props['gridSpan'] = gridSpan.get(f'{{{W}}}val', '')
                     shd = tcPr.find(w('shd'))
                     if shd is not None:
                         tc_props['shd'] = {'val': shd.get(f'{{{W}}}val', ''), 'fill': shd.get(f'{{{W}}}fill', '')}
@@ -306,6 +356,15 @@ class DocxParser:
         images = []
         if self.body is None:
             return images
+        # 先建立 anchor -> 所在段落索引 的對應
+        anchor_para = {}
+        p_idx = 0
+        for child in self.body:
+            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if tag == 'p':
+                for draw in child.findall(f'.//{{{WP}}}anchor'):
+                    anchor_para[id(draw)] = p_idx
+                p_idx += 1
         for draw in self.body.iter(f'{{{WP}}}inline'):
             img_info = self._parse_one_image(draw, 'inline')
             if img_info:
@@ -313,6 +372,7 @@ class DocxParser:
         for draw in self.body.iter(f'{{{WP}}}anchor'):
             img_info = self._parse_one_image(draw, 'anchor')
             if img_info:
+                img_info['anchor_p_idx'] = anchor_para.get(id(draw))
                 images.append(img_info)
         return images
 
@@ -338,7 +398,7 @@ class DocxParser:
                 offset = posV.find(f'{{{WP}}}posOffset')
                 if offset is not None and offset.text:
                     info['posV'] = int(offset.text)
-        wrap = draw_elem.find(f'.//{{{WP}}}wrapSquare') or draw_elem.find(f'.//{{{WP}}}wrapNone') or draw_elem.find(f'.//{{{WP}}}wrapThrough')
+        wrap = draw_elem.find(f'.//{{{WP}}}wrapTight') or draw_elem.find(f'.//{{{WP}}}wrapSquare') or draw_elem.find(f'.//{{{WP}}}wrapNone') or draw_elem.find(f'.//{{{WP}}}wrapThrough')
         if wrap is not None:
             info['wrap'] = wrap.tag.split('}')[-1]
         blip = draw_elem.find(f'.//{a("blip")}')

@@ -21,11 +21,17 @@
   <form action="/score" method="post" enctype="multipart/form-data" class="upload-form">
     <div class="form-group">
       <label for="exam_id">選擇題組：</label>
-      <select name="exam_id" id="exam_id" required>
+      <select name="exam_id" id="exam_id" required onchange="updateStages()">
         <option value="">— 請選擇 —</option>
         {% for e in exams %}
-        <option value="{{ e.id }}">{{ e.name }}</option>
+        <option value="{{ e.id }}" data-stages='{{ e.stages | tojson }}'>{{ e.name }}</option>
         {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="stage">選擇階段：</label>
+      <select name="stage" id="stage" required>
+        <option value="">— 請先選題組 —</option>
       </select>
     </div>
     <div class="form-group">
@@ -43,5 +49,19 @@
     <button type="submit">開始評分</button>
   </form>
 </div>
+<script>
+function updateStages(){
+  var sel = document.getElementById('exam_id');
+  var st = document.getElementById('stage');
+  var oo = sel.options[sel.selectedIndex];
+  st.innerHTML = '<option value="">— 請選擇階段 —</option>';
+  if(!oo || !oo.dataset.stages) return;
+  JSON.parse(oo.dataset.stages).forEach(function(s){
+    var op = document.createElement('option');
+    op.value = s.id; op.textContent = s.name;
+    st.appendChild(op);
+  });
+}
+</script>
 </body>
 </html>

@@ -75,39 +75,42 @@ def check_justify(student, ref, cfg):
     return PASS
 
 # ── ● 頁首字型 ─────────────────────────────────────
-def check_header_font(student, ref, cfg):
+def _hf_font_check(student, zone, cfg):
     hf = student.parse_header_footer()
-    header = hf.get('header')
-    if not header:
-        return (10, '無頁首')
-    cjk_ok = True
-    en_ok = True
-    sz_ok = True
-    expected_sz = cfg.get('font_size', '20')
+    zone_cn = '頁首' if zone == 'header' else '頁尾'
+    el = hf.get(zone)
+    if not el:
+        return (10, f'無{zone_cn}')
+    style_rpr = (hf.get(zone + '_style') or {}).get('rPr') or {}
     expected_en = cfg.get('en_font', 'Times New Roman')
-    for t, rp in header['runs']:
+    allowed_cjk = cfg.get('cjk_fonts') or ['新細明體', '細明體']
+    if 'size' in cfg:
+        expected_half = int(cfg['size']) * 2
+    else:
+        expected_half = int(cfg.get('font_size', '20'))
+    issues = []
+    for t, rp in el['runs']:
         if not t.strip():
             continue
-        eastasia = rp.get('font_eastAsia', '')
-        ascii_f = rp.get('font_ascii', '')
-        sz = rp.get('sz', '')
         cls = classify_text(t)
-        if cls in ('chinese', 'mixed') and eastasia and eastasia not in ('細明體', '新細明體', '標楷體'):
-            cjk_ok = False
-        if cls in ('english', 'digit', 'mixed') and ascii_f and ascii_f != expected_en:
-            en_ok = False
-        if sz and sz != expected_sz:
-            sz_ok = False
-    issues = []
-    if not cjk_ok:
-        issues.append('中文字型非細明體/新細明體')
-    if not en_ok:
-        issues.append(f'英數字型非{expected_en}')
-    if not sz_ok:
-        issues.append(f'字型大小非{halfpt_to_pt(expected_sz)}pt')
+        ea = rp.get('font_eastAsia') or style_rpr.get('font_eastAsia')
+        af = rp.get('font_ascii') or style_rpr.get('font_ascii')
+        sz = rp.get('sz') or style_rpr.get('sz')
+        if cls in ('chinese', 'mixed') and ea and ea not in allowed_cjk:
+            issues.append(f'中文字型「{ea}」(應{"或".join(allowed_cjk)})')
+        if cls in ('english', 'digit', 'mixed') and af and af != expected_en:
+            issues.append(f'英數字型「{af}」(應{expected_en})')
+        if sz and sz.isdigit() and int(sz) != expected_half:
+            issues.append(f'大小{halfpt_to_pt(sz)}pt(應{cfg.get("size") or halfpt_to_pt(str(expected_half))}pt)')
     if issues:
-        return (10, '; '.join(issues))
+        return (10, f'{zone_cn}字型: ' + '; '.join(dict.fromkeys(issues)))
     return PASS
+
+def check_header_font(student, ref, cfg):
+    return _hf_font_check(student, 'header', cfg)
+
+def check_footer_font(student, ref, cfg):
+    return _hf_font_check(student, 'footer', cfg)
 
 # ── ● 頁首內容 ─────────────────────────────────────
 def check_header_content(student, ref, cfg):
@@ -500,45 +503,53 @@ def check_table_content(student, ref, cfg):
     r_list = [p.get('table', {}) for p in ref.parse_paragraphs(include_tables=True) if p['type'] == 'table']
     if not r_list:
         return PASS
+    per_char = cfg.get('per_char', 3)
     if not s_list:
         total_chars = 0
         for row in r_list[0].get('rows', []):
             for cell in row:
                 total_chars += len(cell.get('text', '').strip())
-        return (total_chars * 3, f'缺少表格(全文共{total_chars}字)')
+        return (total_chars * per_char, f'缺少表格(全文共{total_chars}字)')
     s_tbl, r_tbl = s_list[0], r_list[0]
     s_rows, r_rows = s_tbl.get('rows', []), r_tbl.get('rows', [])
-    diff = 0
+    text_diff = 0
+    fmt_diff = 0
     details = []
     for ri, (sr, rr) in enumerate(zip(s_rows, r_rows)):
         for ci, (sc, rc) in enumerate(zip(sr, rr)):
             st = sc.get('text', '').strip()
             rt = rc.get('text', '').strip()
             if st != rt:
-                wd = sum(1 for a, b in zip(st, rt) if a != b) + abs(len(st) - len(rt))
-                diff += wd
+                td = sum(1 for a, b in zip(st, rt) if a != b) + abs(len(st) - len(rt))
+                text_diff += td
                 details.append(f'({ri+1},{ci+1}):預期「{rt}」\n  實際「{st}」')
             for sp, rp in zip(sc.get('paras', []), rc.get('paras', [])):
                 for sr_, rr_ in zip(sp.get('runs', []), rp.get('runs', [])):
-                    if sr_[1].get('i') != rr_[1].get('i'): diff += 1; details.append(f'({ri+1},{ci+1}):斜體')
-                    if sr_[1].get('u') != rr_[1].get('u'): diff += 1; details.append(f'({ri+1},{ci+1}):底線')
+                    if sr_[1].get('i') != rr_[1].get('i'): fmt_diff += 1; details.append(f'({ri+1},{ci+1}):斜體')
+                    if sr_[1].get('u') != rr_[1].get('u'): fmt_diff += 1; details.append(f'({ri+1},{ci+1}):底線')
             s_shd = sc.get('tcPr', {}).get('shd', {})
             r_shd = rc.get('tcPr', {}).get('shd', {})
             s_val = s_shd.get('val') if s_shd.get('val') not in (None, 'clear', 'nil') else None
             r_val = r_shd.get('val') if r_shd.get('val') not in (None, 'clear', 'nil') else None
-            if s_val != r_val: diff += 1; details.append(f'({ri+1},{ci+1}):網底')
+            if s_val != r_val: fmt_diff += 1; details.append(f'({ri+1},{ci+1}):網底')
             s_td = sc.get('tcPr', {}).get('textDirection', '')
             r_td = rc.get('tcPr', {}).get('textDirection', '')
-            if s_td != r_td: diff += 1; details.append(f'({ri+1},{ci+1}):文字方向')
+            if s_td != r_td: fmt_diff += 1; details.append(f'({ri+1},{ci+1}):文字方向')
             s_diag = sc.get('tcPr', {}).get('diag', {})
             r_diag = rc.get('tcPr', {}).get('diag', {})
-            if bool(s_diag) != bool(r_diag): diff += 1; details.append(f'({ri+1},{ci+1}):斜線')
+            if bool(s_diag) != bool(r_diag): fmt_diff += 1; details.append(f'({ri+1},{ci+1}):斜線')
     if len(s_rows) != len(r_rows):
-        diff += abs(len(s_rows) - len(r_rows)) * 5
-    if diff:
+        missing = abs(len(s_rows) - len(r_rows))
+        add = 0
+        for row in r_rows[len(s_rows):] if len(s_rows) < len(r_rows) else r_rows[len(r_rows):]:
+            for cell in row:
+                add += len(cell.get('text', '').strip())
+        text_diff += add
+    total = text_diff * per_char + fmt_diff
+    if total:
         r = '\n'.join(details[:3])
         if len(details) > 3: r += f'\n等{len(details)}處'
-        return (min(diff * 3, 999), r)
+        return (min(total, 999), r)
     return PASS
 
 # ── △ 自行輸入字型 ─────────────────────────────────
@@ -593,8 +604,553 @@ def check_replacement(student, ref, cfg):
         return (10, '; '.join(issues))
     return PASS
 
+def _edit_distance(a, b):
+    """Levenshtein distance: 1 deletion/insertion/substitution = 1."""
+    if a == b:
+        return 0
+    la, lb = len(a), len(b)
+    if la == 0:
+        return lb
+    if lb == 0:
+        return la
+    prev = list(range(lb + 1))
+    for i in range(1, la + 1):
+        cur = [i] + [0] * lb
+        for j in range(1, lb + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+        prev = cur
+    return prev[lb]
+
+def _para_text_diff(st, rt):
+    """Per-character difference between two paragraph texts (Levenshtein)."""
+    return _edit_distance(st, rt)
+
+# ── ● 段落總數 ──────────────────────────────────────
+def check_para_count(student, ref, cfg):
+    paras = student.parse_paragraphs()
+    expected = cfg.get('expected')
+    if expected is None:
+        if ref is None:
+            return (10, '未知段落數')
+        expected = len(ref.parse_paragraphs())
+    count = len(paras)
+    if count == expected:
+        return PASS
+    return (cfg.get('points', 10), f'段落數{count}(應為{expected})')
+
+# ── ● 匯入文字並分段（段落數＋段落文字與參考答案完全一致）─
+def check_import_split(student, ref, cfg):
+    if ref is None:
+        return (999, '缺少此階段參考答案')
+    s_paras = student.parse_paragraphs()
+    r_paras = ref.parse_paragraphs()
+    s_texts = [p.get('text', '') for p in s_paras]
+    r_texts = [p.get('text', '') for p in r_paras]
+    indices = cfg.get('p_indices')
+    if indices is not None:
+        diff = 0
+        issues = []
+        for i in indices:
+            if i >= len(r_paras):
+                continue
+            rt = r_texts[i]
+            st = s_texts[i] if i < len(s_paras) else ''
+            d = _para_text_diff(st, rt)
+            diff += d
+            if d:
+                issues.append(f'第{i+1}段：\n  預期「{rt[:30]}{"…" if len(rt)>30 else ""}」\n  實際「{st[:30]}{"…" if len(st)>30 else ""}」')
+        if diff == 0:
+            return PASS
+        per = cfg.get('per_char')
+        if per:
+            return (min(diff * per, 999), '; '.join(issues[:5]))
+        return (cfg.get('points', 20), '; '.join(issues[:5]))
+    issues = []
+    if s_texts == r_texts:
+        return PASS
+    if len(s_paras) != len(r_paras):
+        issues.append(f'段落數{len(s_paras)}(應為{len(r_paras)})')
+    diff = sum(1 for a, b in zip(s_texts, r_texts) if a != b) + abs(len(s_texts) - len(r_texts))
+    for i, (st, rt) in enumerate(zip(s_texts, r_texts)):
+        if st != rt:
+            issues.append(f'第{i+1}段：\n  預期「{rt[:30]}{"…" if len(rt)>30 else ""}」\n  實際「{st[:30]}{"…" if len(st)>30 else ""}」')
+    if len(s_paras) > len(r_paras):
+        for i in range(len(r_paras), len(s_paras)):
+            issues.append(f'第{i+1}段：多出的段落「{s_texts[i][:30]}{"…" if s_texts[i] else ""}」')
+    elif len(s_paras) < len(r_paras):
+        for i in range(len(s_paras), len(r_paras)):
+            issues.append(f'第{i+1}段：缺少段落「{r_texts[i][:30]}{"…" if r_texts[i] else ""}」')
+    return (cfg.get('points', 20), '; '.join(issues[:20]))
+
+# ── 頁首/頁尾 三欄分段 ──────────────────────────────
+def _hf_segments(runs):
+    """Split header/footer runs into columns by paragraph tabs (w:ptab).
+    Returns list of (preceding_tab_alignment_or_None, text)."""
+    segs = []
+    cur_align = None
+    cur = ''
+    for t, rp in runs:
+        if rp.get('ptab'):
+            segs.append((cur_align, cur))
+            cur_align = rp['ptab']
+            cur = ''
+        else:
+            cur += t
+    segs.append((cur_align, cur))
+    return segs
+
+# ── ● 頁首：三欄（學號 / 姓名 / 座號）──────────────
+def check_header_format(student, ref, cfg):
+    el = student.parse_header_footer().get('header')
+    if not el:
+        return (10, '無頁首')
+    segs = _hf_segments(el.get('runs', []))
+    texts = [t for _, t in segs]
+    aligns = [a for a, _ in segs]
+    issues = []
+    if len(segs) != 3:
+        issues.append(f'欄數{len(segs)}(應為3欄)')
+    if aligns != [None, 'center', 'right']:
+        issues.append('三欄定位錯誤(應為置中、靠右)')
+    for i, lbl in ((0, '左側學號'), (1, '中間姓名'), (2, '右側座號')):
+        if i < len(texts) and not texts[i].strip():
+            issues.append(f'{lbl}無資料')
+    if not issues:
+        return PASS
+    return (10, '; '.join(issues))
+
+# ── ● 頁尾：三欄（日期 / 第X頁 / 空白）──────────────
+def check_footer_format(student, ref, cfg):
+    el = student.parse_header_footer().get('footer')
+    if not el:
+        return (10, '無頁尾')
+    segs = _hf_segments(el.get('runs', []))
+    texts = [t for _, t in segs]
+    aligns = [a for a, _ in segs]
+    issues = []
+    if len(segs) != 3:
+        issues.append(f'欄數{len(segs)}(應為3欄)')
+    if aligns != [None, 'center', 'right']:
+        issues.append('三欄定位錯誤(應為置中、靠右)')
+    if len(texts) >= 1 and not re.fullmatch(r'\d{4}/\d{2}/\d{2}', texts[0].strip()):
+        issues.append(f'左側日期「{texts[0].strip()[:15]}」非YYYY/MM/DD')
+    center = texts[1] if len(texts) >= 2 else ''
+    if ('FIELD:PAGE' not in center) and ('INSTR:PAGE' not in center):
+        issues.append('中間無頁碼欄位')
+    if '第' not in center or '頁' not in center:
+        issues.append('中間非「第X頁」格式')
+    if len(texts) >= 3 and texts[2].strip():
+        issues.append('右側應無資料')
+    if not issues:
+        return PASS
+    return (10, '; '.join(issues))
+
+# ── ● 所有段落左右對齊 ──────────────────────────────
+def check_justify_all(student, ref, cfg):
+    bad = []
+    for p in student.parse_paragraphs():
+        if p['type'] != 'para':
+            continue
+        if p.get('pPr', {}).get('jc') != 'both':
+            t = p.get('text', '').strip()
+            bad.append(t[:15] if t else '(空白段)')
+    if bad:
+        return (cfg.get('points', 10), f'{len(bad)}段非左右對齊: ' + ', '.join(bad[:5]))
+    return PASS
+
+# ── ● 段落規格（逐段字型/格式設定）───────────────────
+def check_para_spec(student, ref, cfg):
+    """按 JSON spec 逐段檢查字型與格式。
+    cfg.default: 套用到所有內容段 (cjk/ascii/size/jc/italic/underline/indent_first/border/shading)
+    cfg.spec: [{para_no:int[, index:int], 覆寫...}]  用內容段落序號(1-based)或絕對index定位
+    內容段落 = 非空白、非表格段落（不含標題）
+    """
+    default = cfg.get('default', {})
+    skip_title = cfg.get('skip_title', True)
+    paras = student.parse_paragraphs()
+    content_idx = []
+    for idx, p in enumerate(paras):
+        if p['type'] != 'para':
+            continue
+        text = p.get('text', '').strip()
+        if not text:
+            continue
+        if skip_title and '題組' in text:
+            continue
+        content_idx.append(idx)
+    # para_no -> 絕對 index
+    spec_map = {}
+    for sp in cfg.get('spec', []):
+        target = None
+        if 'para_no' in sp and 1 <= sp['para_no'] <= len(content_idx):
+            target = content_idx[sp['para_no'] - 1]
+        elif 'index' in sp:
+            target = sp['index']
+        elif 'indices' in sp:
+            for i in sp['indices']:
+                spec_map[i] = sp
+            continue
+        if target is not None:
+            spec_map[target] = sp
+    skip = set(cfg.get('skip_indices', []) or [])
+    issues = []
+    for idx in content_idx:
+        if idx in skip:
+            continue
+        p = paras[idx]
+        exp = {**default, **spec_map.get(idx, {})}
+        if not exp:
+            continue
+        _check_para_spec_one(p, idx, p.get('text', '').strip(), exp, issues)
+    if issues:
+        return (cfg.get('points', 5), '; '.join(dict.fromkeys(issues[:8])))
+    return PASS
+
+def _check_para_spec_one(p, idx, text, exp, issues):
+    runs = p.get('runs', [])
+    rp_list = [rp for _, rp in runs]
+    def any_run(pred):
+        return any(pred(rp) for rp in rp_list) if rp_list else False
+    def all_nonempty_runs(pred):
+        nonempty = [rp for (t, rp) in runs if t.strip()]
+        return bool(nonempty) and all(pred(rp) for rp in nonempty)
+
+    # 字型：中文字型 (只檢查含中文的 run)
+    if 'cjk' in exp:
+        wrong = {}
+        for t, rp in runs:
+            if not t.strip():
+                continue
+            if classify_text(t) not in ('chinese', 'mixed'):
+                continue
+            ea = rp.get('font_eastAsia', '')
+            if ea and ea != exp['cjk']:
+                if ea not in wrong: wrong[ea] = 0
+                wrong[ea] += len(t)
+        if wrong:
+            for ea, n in wrong.items():
+                issues.append(f'第{idx+1}段中文字型「{ea}」(應{exp["cjk"]}, {n}字)')
+    if 'ascii' in exp:
+        wrong = {}
+        for t, rp in runs:
+            if not t.strip():
+                continue
+            if classify_text(t) not in ('english', 'digit', 'mixed'):
+                continue
+            af = rp.get('font_ascii', '')
+            if af and af != exp['ascii']:
+                if af not in wrong: wrong[af] = 0
+                wrong[af] += len(t)
+        if wrong:
+            for af, n in wrong.items():
+                issues.append(f'第{idx+1}段英數字型「{af}」(應{exp["ascii"]}, {n}字)')
+    if 'size' in exp:
+        wrong_sz = []
+        for _, rp in runs:
+            sz = rp.get('sz', '')
+            if sz and sz.isdigit() and int(sz) != int(exp['size']):
+                wrong_sz.append(halfpt_to_pt(sz))
+        if wrong_sz:
+            pts = sorted({halfpt_to_pt(sz) for sz in wrong_sz})
+            issues.append(f'第{idx+1}段大小{'/'.join(str(p) for p in pts)}pt(應{halfpt_to_pt(str(exp["size"]))}pt)')
+    if 'jc' in exp:
+        if p.get('pPr', {}).get('jc', '') != exp['jc']:
+            issues.append(f'第{idx+1}段未置中' if exp['jc'] == 'center' else f'第{idx+1}段對齊錯誤')
+    if 'italic' in exp:
+        if not any_run(lambda rp: rp.get('i') in ('true', '1')):
+            issues.append(f'第{idx+1}段無斜體')
+    if 'underline' in exp:
+        if not any_run(lambda rp: rp.get('u') not in (None, '', 'none')):
+            issues.append(f'第{idx+1}段無底線')
+    if 'indent_first' in exp:
+        ind = p.get('pPr', {}).get('ind', {})
+        if str(ind.get('firstLine', '')) != str(exp['indent_first']):
+            if exp['indent_first'] is False:
+                if ind.get('firstLine'):
+                    issues.append(f'第{idx+1}段不應有首行縮排')
+            else:
+                issues.append(f'第{idx+1}段首行縮排{ind.get("firstLine","無")}(應{exp["indent_first"]})')
+    if 'border' in exp:
+        has = bool(p.get('pPr', {}).get('pBdr')) or any_run(lambda rp: rp.get('bdr'))
+        if exp['border'] and not has:
+            issues.append(f'第{idx+1}段無框線')
+        if exp['border'] is False and has:
+            issues.append(f'第{idx+1}段不應有框線')
+    if 'shading' in exp:
+        pshd = (p.get('pPr', {}).get('shd') or {}).get('val')
+        has = pshd in ('clear', 'solid') or bool(pshd) or any_run(lambda rp: (rp.get('shd') or {}).get('val'))
+        if exp['shading'] and not has:
+            issues.append(f'第{idx+1}段無網底')
+
+# ── ● 圖片規格（文繞圖/細框線/尺寸/對齊段落）───────
+def check_image_spec(student, ref, cfg):
+    s_imgs = student.parse_images()
+    r_imgs = ref.parse_images() if ref else []
+    if not s_imgs:
+        return (cfg.get('points', 10), '無圖片')
+    img = s_imgs[0]
+    issues = []
+    if img.get('mode') != 'anchor':
+        issues.append('非文繞圖(浮動)模式')
+    if cfg.get('tight') and img.get('wrap') != 'wrapTight':
+        issues.append('未設定文繞圖「緊密」')
+    if cfg.get('border'):
+        has_line = bool(img.get('line'))
+        if not has_line:
+            issues.append('無框線')
+        elif cfg.get('border_thin'):
+            line_w = (img.get('line') or {}).get('w', '')
+            if line_w and line_w.isdigit() and int(line_w) > int(cfg.get('border_thin')):
+                issues.append(f'框線過粗({int(line_w)//12700}pt)')
+    if img.get('posHRel') != cfg.get('posH_rel', 'margin'):
+        issues.append(f'水平對齊{img.get("posHRel","無")}(應{cfg.get("posH_rel","margin")}=左邊界)')
+    if img.get('posVRel') != cfg.get('posV_rel', 'paragraph'):
+        issues.append(f'垂直對齊{img.get("posVRel","無")}(應{cfg.get("posV_rel","paragraph")}=段落頂端)')
+    expected_p = cfg.get('anchor_p_idx')
+    if expected_p is not None and img.get('anchor_p_idx') != expected_p:
+        issues.append(f'圖片綁定第{img.get("anchor_p_idx","?")}段(應第{expected_p+1}段)')
+    tol = cfg.get('size_tol', 0.10)
+    if r_imgs:
+        rc = int(r_imgs[0].get('cx', 0)); rg = int(r_imgs[0].get('cy', 0))
+        sc = int(img.get('cx', 0)); sg = int(img.get('cy', 0))
+        if rc > 0 and sc > 0 and abs(sc - rc) / rc > tol:
+            issues.append(f'寬度{sc}(參考{rc}, 差{abs(sc-rc)/rc*100:.1f}%)')
+        if rg > 0 and sg > 0 and abs(sg - rg) / rg > tol:
+            issues.append(f'高度{sg}(參考{rg}, 差{abs(sg-rg)/rg*100:.1f}%)')
+    if issues:
+        return (cfg.get('points', 10), '; '.join(issues))
+    return PASS
+
+# ── ● 表格欄列規格 ─────────────────────────────────
+def check_table_spec(student, ref, cfg):
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    if not s_tbls:
+        return (cfg.get('points', 10), '無表格')
+    rows = s_tbls[0].get('table', {}).get('rows', [])
+    exp_r = cfg.get('rows', 6); exp_c = cfg.get('cols', 4)
+    issues = []
+    if len(rows) != exp_r:
+        issues.append(f'列數{len(rows)}(應{exp_r})')
+    max_c = max((len(r) for r in rows), default=0)
+    if max_c != exp_c:
+        issues.append(f'欄數{max_c}(應{exp_c})')
+    if issues:
+        return (cfg.get('points', 10), '; '.join(issues))
+    return PASS
+
+# ── ● 表格合併儲存格 ───────────────────────────────
+def check_table_merge(student, ref, cfg):
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    r_tbls = [p for p in ref.parse_paragraphs(include_tables=True) if p['type'] == 'table'] if ref else []
+    if not s_tbls or not r_tbls:
+        return (cfg.get('points', 10), '缺少表格或參考')
+    def merge_pattern(tbl):
+        pat = []
+        for row in tbl.get('rows', []):
+            rp = []
+            for cell in row:
+                tc = cell.get('tcPr', {})
+                if tc.get('gridSpan'):
+                    rp.append(f's{tc["gridSpan"]}')
+                elif tc.get('vMerge'):
+                    rp.append('v' if tc['vMerge'] == 'restart' else 'vc')
+                else:
+                    rp.append('.')
+            pat.append(rp)
+        return pat
+    sp = merge_pattern(s_tbls[0]); rp = merge_pattern(r_tbls[0])
+    if sp != rp:
+        return (cfg.get('points', 10), '合併儲存格配置與參考不符')
+    return PASS
+
+# ── ● 表格欄位寬度 ─────────────────────────────────
+def check_table_width(student, ref, cfg):
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    r_tbls = [p for p in ref.parse_paragraphs(include_tables=True) if p['type'] == 'table'] if ref else []
+    if not s_tbls or not r_tbls:
+        return (cfg.get('points', 10), '缺少表格或參考')
+    sw = s_tbls[0].get('table', {}).get('widths', [])
+    rw = r_tbls[0].get('table', {}).get('widths', [])
+    if not rw:
+        return PASS
+    if len(sw) != len(rw):
+        return (cfg.get('points', 10), f'欄寬數{len(sw)}(應{len(rw)})')
+    tol = cfg.get('tolerance', 0.08)
+    diffs = []
+    for i, (a, b) in enumerate(zip(sw, rw)):
+        if b == 0:
+            continue
+        if abs(a - b) / b > tol:
+            diffs.append(f'欄{i+1}:{a}(參考{b})')
+    if diffs:
+        return (cfg.get('points', 10), '欄寬不符; ' + ', '.join(diffs[:3]))
+    return PASS
+
+# ── ● 首列首欄網底 ─────────────────────────────────
+def check_table_shading(student, ref, cfg):
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    if not s_tbls:
+        return (cfg.get('points', 10), '無表格')
+    tbl = s_tbls[0].get('table', {})
+    rows = tbl.get('rows', [])
+    if not rows:
+        return (cfg.get('points', 10), '無列')
+    cols = max((len(r) for r in rows), default=0)
+    def has_shade(cell):
+        shd = cell.get('tcPr', {}).get('shd', {})
+        fill = shd.get('fill', '')
+        val = shd.get('val', '')
+        if val in ('nil',):
+            return False
+        if fill and fill.lower() != 'auto':
+            return True
+        return False
+    issues = []
+    expected = set()
+    for ci in range(cols):
+        expected.add((0, ci))
+    for ri in range(len(rows)):
+        expected.add((ri, 0))
+    for ri in range(len(rows)):
+        for ci in range(min(len(rows[ri]), cols)):
+            if (ri, ci) in expected and not has_shade(rows[ri][ci]):
+                issues.append(f'({ri+1},{ci+1})無網底')
+    if issues:
+        return (cfg.get('points', 10), '首列/首欄網底; ' + ', '.join(issues[:3]))
+    return PASS
+
+# ── ● 表格文字對齊（置中/分散）──────────────────────
+def check_table_align(student, ref, cfg):
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    r_tbls = [p for p in ref.parse_paragraphs(include_tables=True) if p['type'] == 'table'] if ref else []
+    if not s_tbls or not r_tbls:
+        return (cfg.get('points', 10), '缺少表格或參考')
+    s_tbl, r_tbl = s_tbls[0].get('table', {}), r_tbls[0].get('table', {})
+    s_rows, r_rows = s_tbl.get('rows', []), r_tbl.get('rows', [])
+    if len(s_rows) != len(r_rows):
+        return (cfg.get('points', 10), f'列數{len(s_rows)}(應{len(r_rows)})')
+    issues = []
+    for ri, (sr, rr) in enumerate(zip(s_rows, r_rows)):
+        for ci in range(min(len(sr), len(rr))):
+            sp = sr[ci].get('paras', [])[0].get('pPr', {}).get('jc')
+            rp_ = rr[ci].get('paras', [])[0].get('pPr', {}).get('jc')
+            if sp != rp_:
+                issues.append(f'({ri+1},{ci+1}):對齊{sp or "無"}(應{rp_ or "無"})')
+    if issues:
+        return (cfg.get('points', 10), '; '.join(issues[:3]))
+    return PASS
+
+# ── ● 表格字型（中=新細明體, 英=Arial）─────────────
+def check_table_font(student, ref, cfg):
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    if not s_tbls:
+        return (cfg.get('points', 10), '無表格')
+    rows = s_tbls[0].get('table', {}).get('rows', [])
+    cjk_want = cfg.get('cjk', '新細明體')
+    en_want = cfg.get('en', 'Arial')
+    issues = []
+    for ri, row in enumerate(rows):
+        for ci, cell in enumerate(row):
+            for para in cell.get('paras', []):
+                for t, rp in para.get('runs', []):
+                    if not t.strip():
+                        continue
+                    cls = classify_text(t)
+                    if cls in ('chinese', 'mixed'):
+                        ea = rp.get('font_eastAsia', '')
+                        if ea and ea != cjk_want:
+                            issues.append(f'({ri+1},{ci+1})中文用「{ea}」')
+                    if cls in ('english', 'digit'):
+                        af = rp.get('font_ascii', '') or rp.get('font_hAnsi', '')
+                        if af and af != en_want:
+                            issues.append(f'({ri+1},{ci+1})英文用「{af}」')
+    if issues:
+        return (cfg.get('points', 10), '; '.join(set(issues))[:200])
+    return PASS
+
+# ── ● 表格全形括號 ─────────────────────────────────
+def check_table_fullwidth(student, ref, cfg):
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    if not s_tbls:
+        return (cfg.get('points', 10), '無表格')
+    tbl = s_tbls[0].get('table', {})
+    total = 0
+    for row in tbl.get('rows', []):
+        for cell in row:
+            total += cell.get('text', '').count('(') + cell.get('text', '').count(')')
+    if total > 0:
+        return (10, f'表格內尚有{total}個半型括號')
+    return PASS
+
+# ── ● 頁首：三欄（中文西元年 / 空白 / 第X頁）────────
+def check_tz02_header_format(student, ref, cfg):
+    el = student.parse_header_footer().get('header')
+    if not el:
+        return (10, '無頁首')
+    segs = _hf_segments(el.get('runs', []))
+    texts = [t for _, t in segs]
+    aligns = [a for a, _ in segs]
+    issues = []
+    if len(segs) != 3:
+        issues.append(f'欄數{len(segs)}(應為3欄)')
+    else:
+        if not texts[0].strip():
+            issues.append('左側(中文西元年)無資料')
+        if texts[1].strip():
+            issues.append('中間應為空白')
+        right = texts[2]
+        if ('FIELD:PAGE' not in right) and ('INSTR:PAGE' not in right) and ('第' not in right or '頁' not in right):
+            issues.append('右側非「第X頁」格式(含頁碼)')
+    if aligns != [None, 'center', 'right']:
+        issues.append('三欄定位錯誤(應為置中、靠右)')
+    if not issues:
+        return PASS
+    return (10, '; '.join(issues))
+
+# ── ● 頁尾：三欄（學號 / 姓名 / 座號）──────────────
+def check_tz02_footer_format(student, ref, cfg):
+    el = student.parse_header_footer().get('footer')
+    if not el:
+        return (10, '無頁尾')
+    segs = _hf_segments(el.get('runs', []))
+    texts = [t for _, t in segs]
+    aligns = [a for a, _ in segs]
+    issues = []
+    if len(segs) != 3:
+        issues.append(f'欄數{len(segs)}(應為3欄)')
+    else:
+        for i, lbl in ((0, '左側學號'), (1, '中間姓名'), (2, '右側座號')):
+            if not texts[i].strip():
+                issues.append(f'{lbl}無資料')
+    if aligns != [None, 'center', 'right']:
+        issues.append('三欄定位錯誤(應為置中、靠右)')
+    if not issues:
+        return PASS
+    return (10, '; '.join(issues))
+
 # ── 註冊表 ──────────────────────────────────────────
 REGISTRY = {
+    'justify_all': check_justify_all,
+    'para_count': check_para_count,
+    'para_spec': check_para_spec,
+    'image_spec': check_image_spec,
+    'table_spec': check_table_spec,
+    'table_merge': check_table_merge,
+    'table_width': check_table_width,
+    'table_shading': check_table_shading,
+    'table_align': check_table_align,
+    'table_font': check_table_font,
+    'table_fullwidth': check_table_fullwidth,
+    'import_split': check_import_split,
+    'paragraph_text': check_import_split,
+    'title_para': check_import_split,
+    'typing_text': check_import_split,
+    'header_format': check_header_format,
+    'footer_format': check_footer_format,
+    'tz02_header_format': check_tz02_header_format,
+    'tz02_footer_format': check_tz02_footer_format,
+    'footer_font': check_footer_font,
     'orientation': check_orientation,
     'page_size': check_page_size,
     'margins': check_margins,

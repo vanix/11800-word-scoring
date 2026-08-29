@@ -15,7 +15,8 @@ def load_exam_list():
             try:
                 with open(os.path.join(EXAMS_DIR, fname), encoding='utf-8') as f:
                     cfg = json.load(f)
-                exams.append({'id': exam_id, 'name': cfg.get('name', exam_id)})
+                exams.append({'id': exam_id, 'name': cfg.get('name', exam_id),
+                              'stages': cfg.get('stages', [])})
             except Exception:
                 exams.append({'id': exam_id, 'name': exam_id})
     return exams
@@ -35,12 +36,8 @@ class ScoringEngine:
         self.exam_id = exam_id
         self.config = self._load_config(exam_id)
         self.student = DocxParser(student_docx_path)
-        self.ref = None
-        ref_rel = self.config.get('ref_file', '')
-        if ref_rel:
-            ref_path = os.path.join(EXAMS_DIR, ref_rel)
-            if os.path.isfile(ref_path):
-                self.ref = DocxParser(ref_path)
+        self._ref_cache = {}
+        self.ref = self._get_ref(self.config.get('ref_file', ''))
         self.results = []
 
     def _load_config(self, exam_id):
@@ -48,27 +45,48 @@ class ScoringEngine:
         with open(path, encoding='utf-8') as f:
             return json.load(f)
 
-    def run(self):
+    def _get_ref(self, ref_rel):
+        if not ref_rel:
+            return None
+        if ref_rel in self._ref_cache:
+            return self._ref_cache[ref_rel]
+        ref_path = os.path.join(EXAMS_DIR, ref_rel)
+        ref = DocxParser(ref_path) if os.path.isfile(ref_path) else None
+        self._ref_cache[ref_rel] = ref
+        return ref
+
+    def run(self, stage=None):
         for item in self.config.get('checks', []):
-            cid = item['id']
-            result = ScoreResult(cid, item['symbol'], item['points'], item['label'])
-            if cid in REGISTRY:
-                try:
-                    deduct, reason = REGISTRY[cid](self.student, self.ref, {**self.config, **item})
-                    if deduct > 0:
-                        result.passed = False
-                        result.deduct = deduct
-                        result.reason = reason
-                except Exception as e:
+            stages = item.get('stages') or ([item['stage']] if item.get('stage') else [])
+            if stage is not None and stage not in stages:
+                continue
+            by_stage = item.get('by_stage') or {}
+            params = {**self.config, **item, **(by_stage.get(stage) or {})}
+            self.results.append(self._run_one(item, params, stage))
+        return self.results
+
+    def _run_one(self, item, params, stage):
+        cid = item['id']
+        result = ScoreResult(cid, params.get('symbol', item.get('symbol', '')),
+                             params.get('points', item.get('points', 0)),
+                             params.get('label', item['label']))
+        if cid in REGISTRY:
+            try:
+                ref = self._get_ref(params.get('ref_file') or self.config.get('ref_file', ''))
+                deduct, reason = REGISTRY[cid](self.student, ref, params)
+                if deduct > 0:
                     result.passed = False
-                    result.deduct = result.max_points
-                    result.reason = f'錯誤: {e}'
-            else:
+                    result.deduct = deduct
+                    result.reason = reason
+            except Exception as e:
                 result.passed = False
                 result.deduct = result.max_points
-                result.reason = f'未實裝檢查: {cid}'
-            self.results.append(result)
-        return self.results
+                result.reason = f'錯誤: {e}'
+        else:
+            result.passed = False
+            result.deduct = result.max_points
+            result.reason = f'未實裝檢查: {cid}'
+        return result
 
     def summary(self):
         total_deduct = sum(r.deduct for r in self.results)

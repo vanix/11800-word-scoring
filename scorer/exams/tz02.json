@@ -1,27 +1,26 @@
 {
   "name": "題組二",
-  "ref_file": "tz02_ref.docx",
-  "self_input": "然而令人頭疼的是，如果你用無線電來當傳輸介質的話，單單利用基本的調變方式，是沒有辦法在目前受限的頻帶下傳遞大量的資料。當然事情也沒有這麼糟糕，為了解決在無線電環境下頻寬過小的窘境，展頻（Spread Spectrum）技術自然而然就被提出來了。展頻技術的方法有兩種，一種叫做直接序列（Direct Sequence），另外一種叫做跳頻（Frequency Hopping）。這兩種技巧都是利用一個虛擬雜訊碼產生器（Pseudo Noise Code Generator），來產生虛擬雜訊碼，利用這個特殊的虛擬雜訊碼與原調變後的訊號相結合而達到展頻的目的。",
+  "ref_file": "tz02_stage1_ref.docx",
+  "stages": [
+    {"id": "1", "name": "匯入文字並分段"},
+    {"id": "2", "name": "頁首頁尾/字型/邊界"},
+    {"id": "3", "name": "輸入標題及繕打文字"}
+  ],
   "checks": [
-    {"id": "orientation", "symbol": "★", "points": 50, "label": "直向列印", "expected": "portrait"},
-    {"id": "page_size", "symbol": "●", "points": 10, "label": "A4尺寸", "expected": {"w": "11906", "h": "16838"}},
-    {"id": "margins", "symbol": "●", "points": 10, "label": "邊界3cm", "expected": {"top": "1701", "bottom": "1701", "left": "1701", "right": "1701"}},
-    {"id": "justify", "symbol": "●", "points": 10, "label": "左右對齊"},
-    {"id": "header_font", "symbol": "●", "points": 10, "label": "頁首字型"},
-    {"id": "header_content", "symbol": "●", "points": 10, "label": "頁首日期"},
-    {"id": "header_pagenum", "symbol": "●", "points": 10, "label": "頁首頁碼"},
-    {"id": "title_format", "symbol": "●", "points": 10, "label": "標題格式", "cjk": "標楷體", "size": "36", "border": true, "italic": true, "shading": false},
-    {"id": "columns", "symbol": "●", "points": 10, "label": "第四段二欄"},
-    {"id": "para_spacing", "symbol": "●", "points": 10, "label": "段落間隔"},
-    {"id": "image", "symbol": "●", "points": 10, "label": "圖形格式"},
-    {"id": "table_position", "symbol": "●", "points": 10, "label": "表格位置"},
-    {"id": "fullwidth_parens", "symbol": "●", "points": 10, "label": "全型括號"},
-    {"id": "body_fonts", "symbol": "△", "points": 5, "label": "本文字型大小"},
-    {"id": "title_text", "symbol": "※", "points": 3, "label": "標題文字"},
-    {"id": "para_formats", "symbol": "△", "points": 5, "label": "段落格式"},
-    {"id": "para_split", "symbol": "△", "points": 5, "label": "段落分行"},
-    {"id": "brackets", "symbol": "※", "points": 3, "label": "【】未刪除"},
-    {"id": "table_content", "symbol": "※", "points": 3, "label": "表格內容"},
-    {"id": "self_input_font", "symbol": "△", "points": 5, "label": "自行輸入字型"}
+    {"id": "para_count", "symbol": "●", "points": 10, "label": "段落總數", "stages": ["1", "2", "3"], "by_stage": {
+      "1": {"expected": 13, "label": "段落總數13段"},
+      "2": {"expected": 13, "label": "段落總數13段"},
+      "3": {"expected": 13, "label": "段落總數13段"}
+    }},
+    {"id": "import_split", "symbol": "◎", "points": 20, "label": "匯入文字與參考一致", "ref_file": "tz02_stage1_ref.docx", "stages": ["1", "2"]},
+    {"id": "justify_all", "symbol": "●", "points": 10, "label": "所有段落左右對齊", "stages": ["1", "2", "3"]},
+    {"id": "margins", "symbol": "●", "points": 10, "label": "邊界3公分", "expected": {"top": "1701", "bottom": "1701", "left": "1701", "right": "1701"}, "stages": ["2", "3"]},
+    {"id": "tz02_header_format", "symbol": "●", "points": 10, "label": "頁首三欄(中文西元年/空白/第X頁)", "stages": ["2", "3"]},
+    {"id": "tz02_footer_format", "symbol": "●", "points": 10, "label": "頁尾三欄(學號/姓名/座號)", "stages": ["2", "3"]},
+    {"id": "header_font", "symbol": "●", "points": 10, "label": "頁首字型(新細明體/TNR/10pt)", "en_font": "Times New Roman", "size": "10", "stages": ["2", "3"]},
+    {"id": "footer_font", "symbol": "●", "points": 10, "label": "頁尾字型(新細明體/TNR/10pt)", "en_font": "Times New Roman", "size": "10", "stages": ["2", "3"]},
+    {"id": "title_para", "symbol": "※", "points": 3, "label": "標題文字(每字3分)", "ref_file": "tz02_stage3_ref.docx", "p_indices": [0], "per_char": 3, "stages": ["3"]},
+    {"id": "brackets", "symbol": "※", "points": 3, "label": "【】已刪除", "stages": ["3"]},
+    {"id": "typing_text", "symbol": "※", "points": 3, "label": "繕打文字(第7段每字3分)", "ref_file": "tz02_stage3_ref.docx", "p_indices": [6], "per_char": 3, "stages": ["3"]}
   ]
 }
