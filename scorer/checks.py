@@ -384,6 +384,14 @@ def check_fullwidth_parens(student, ref, cfg):
         return (10, f'尚有{half}個半型括號')
     return PASS
 
+# ── ● 半型逗號轉全型， ─────────────────────────────
+def check_fullwidth_commas(student, ref, cfg):
+    full = '\n'.join(p.get('text', '') for p in student.parse_paragraphs())
+    half = full.count(',')
+    if half > 0:
+        return (10, f'尚有{half}個半型逗號')
+    return PASS
+
 # ── △ 本文字型 ─────────────────────────────────────
 def check_body_fonts(student, ref, cfg):
     s_paras, r_paras = _body_paras(student, ref)
@@ -752,6 +760,8 @@ def check_justify_all(student, ref, cfg):
     for p in student.parse_paragraphs():
         if p['type'] != 'para':
             continue
+        if cfg.get('skip_title') and '題組' in p.get('text', ''):
+            continue
         if p.get('pPr', {}).get('jc') != 'both':
             t = p.get('text', '').strip()
             bad.append(t[:15] if t else '(空白段)')
@@ -903,6 +913,8 @@ def check_image_spec(student, ref, cfg):
             line_w = (img.get('line') or {}).get('w', '')
             if line_w and line_w.isdigit() and int(line_w) > int(cfg.get('border_thin')):
                 issues.append(f'框線過粗({int(line_w)//12700}pt)')
+    if cfg.get('shadow') and not img.get('shadow'):
+        issues.append('無陰影(需右下陰影)')
     if img.get('posHRel') != cfg.get('posH_rel', 'margin'):
         issues.append(f'水平對齊{img.get("posHRel","無")}(應{cfg.get("posH_rel","margin")}=左邊界)')
     if img.get('posVRel') != cfg.get('posV_rel', 'paragraph'):
@@ -1164,6 +1176,7 @@ REGISTRY = {
     'image': check_image,
     'table_position': check_table_position,
     'fullwidth_parens': check_fullwidth_parens,
+    'fullwidth_commas': check_fullwidth_commas,
     'body_fonts': check_body_fonts,
     'title_text': check_title_text_same,
     'para_split': check_para_split,

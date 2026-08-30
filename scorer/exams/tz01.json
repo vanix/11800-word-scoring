@@ -19,7 +19,7 @@
       "6": {"expected": 23, "label": "段落總數23段"}
     }},
     {"id": "import_split", "symbol": "◎", "points": 20, "label": "匯入文字與參考一致", "ref_file": "tz01_stage1_ref.docx", "stages": ["1", "2"]},
-    {"id": "justify_all", "symbol": "●", "points": 10, "label": "所有段落左右對齊", "stages": ["1"]},
+    {"id": "justify_all", "symbol": "●", "points": 10, "label": "正文段落左右對齊", "skip_title": true, "stages": ["1", "2", "3", "4", "5", "6"]},
     {"id": "margins", "symbol": "●", "points": 10, "label": "邊界3公分", "expected": {"top": "1701", "bottom": "1701", "left": "1701", "right": "1701"}, "stages": ["2", "3", "4", "5", "6"]},
     {"id": "header_format", "symbol": "●", "points": 10, "label": "頁首三欄(學號/姓名/座號)", "stages": ["2", "3", "4", "5", "6"]},
     {"id": "footer_format", "symbol": "●", "points": 10, "label": "頁尾三欄(日期/第X頁)", "stages": ["2", "3", "4", "5", "6"]},

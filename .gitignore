@@ -3,3 +3,7 @@ __pycache__/
 uploads/
 ._*
 .DS_Store
+# 參考檔備份（勿提交）
+scorer/exams/*_backup.docx
+scorer/exams/*_pre.docx
+scorer/exams/*_old.docx
