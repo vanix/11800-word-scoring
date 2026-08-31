@@ -38,6 +38,23 @@
       <label for="student_name">姓名：</label>
       <input type="text" name="student_name" id="student_name" placeholder="請輸入姓名" required>
     </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="class_id">班級：</label>
+        <select name="class_id" id="class_id" required>
+          <option value="">— 請選擇 —</option>
+          <option value="301">301</option>
+          <option value="302">302</option>
+          <option value="303">303</option>
+          <option value="304">304</option>
+          <option value="305">305</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="seat_no">座號：</label>
+        <input type="text" name="seat_no" id="seat_no" placeholder="請輸入座號" required>
+      </div>
+    </div>
     <div class="form-group ip-row">
       <label>用戶端 IP：</label>
       <span class="ip-text">{{ client_ip }}</span>

@@ -9,6 +9,8 @@ h1 { text-align: center; font-size: 22px; margin-bottom: 10px; color: #1a1a2e; }
 /* Upload form */
 .upload-form { background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
 .form-group { margin-bottom: 20px; }
+.form-row { display: flex; gap: 20px; }
+.form-row .form-group { flex: 1; }
 .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; color: #555; }
 select, input[type="file"] { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; background: #fff; }
 button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; }

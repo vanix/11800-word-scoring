@@ -19,14 +19,14 @@ def sanitize(s):
     s = re.sub(r'[^\w.\u4e00-\u9fff-]', '', s)
     return s.strip('._') or 'unknown'
 
-def log_submission(client_ip, student_name, saved_name, exam_name, score):
+def log_submission(client_ip, student_name, class_id, seat_no, saved_name, exam_name, score):
     is_new = not os.path.isfile(LOG_FILE)
     with open(LOG_FILE, 'a', newline='', encoding='utf-8-sig') as f:
         w = csv.writer(f)
         if is_new:
-            w.writerow(['時間', 'IP', '姓名', '檔案', '題組', '分數'])
+            w.writerow(['時間', 'IP', '班級', '座號', '姓名', '檔案', '題組', '分數'])
         w.writerow([datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    client_ip, student_name, saved_name, exam_name, score])
+                    client_ip, class_id, seat_no, student_name, saved_name, exam_name, score])
 
 @app.route('/')
 def index():
@@ -50,6 +50,16 @@ def score():
     student_name = request.form.get('student_name', '').strip()
     if not student_name:
         flash('請輸入姓名')
+        return redirect(url_for('index'))
+
+    class_id = request.form.get('class_id', '').strip()
+    if not class_id:
+        flash('請選擇班級')
+        return redirect(url_for('index'))
+
+    seat_no = request.form.get('seat_no', '').strip()
+    if not seat_no:
+        flash('請輸入座號')
         return redirect(url_for('index'))
 
     file = request.files.get('file')
@@ -80,7 +90,7 @@ def score():
         saved_name = f'{safe_name}_{safe_ip}_{ts}_{safe_base}_{score}{ext}'
         saved_path = os.path.join(UPLOAD_DIR, saved_name)
         os.rename(tmp_path, saved_path)
-        log_submission(client_ip, student_name, saved_name,
+        log_submission(client_ip, student_name, class_id, seat_no, saved_name,
                        engine.config.get('name', exam_id), score)
         return render_template('result.html', summary=summary,
                                exam_name=engine.config.get('name', exam_id),
