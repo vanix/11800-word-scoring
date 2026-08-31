@@ -307,6 +307,17 @@ class DocxParser:
                 wv = gc.get(f'{{{W}}}w')
                 if wv is not None:
                     info['widths'].append(int(wv))
+        tblPr = tbl_elem.find(w('tblPr'))
+        if tblPr is not None:
+            cellMar = tblPr.find(w('tblCellMar'))
+            if cellMar is not None:
+                info['cell_margins'] = {}
+                for d in ('top', 'left', 'bottom', 'right'):
+                    e = cellMar.find(w(d))
+                    if e is not None:
+                        wv = e.get(f'{{{W}}}w')
+                        if wv is not None:
+                            info['cell_margins'][d] = int(wv)
         rows = tbl_elem.findall(f'.//{w("tr")}')
         full_texts = []
         for row in rows:
@@ -324,6 +335,9 @@ class DocxParser:
                     gridSpan = tcPr.find(w('gridSpan'))
                     if gridSpan is not None:
                         tc_props['gridSpan'] = gridSpan.get(f'{{{W}}}val', '')
+                    vAlign = tcPr.find(w('vAlign'))
+                    if vAlign is not None:
+                        tc_props['vAlign'] = vAlign.get(f'{{{W}}}val', '')
                     shd = tcPr.find(w('shd'))
                     if shd is not None:
                         tc_props['shd'] = {'val': shd.get(f'{{{W}}}val', ''), 'fill': shd.get(f'{{{W}}}fill', '')}
@@ -339,6 +353,17 @@ class DocxParser:
                                 diag[side] = b.get(f'{{{W}}}val', '')
                         if diag:
                             tc_props['diag'] = diag
+                    tcMar = tcPr.find(w('tcMar'))
+                    if tcMar is not None:
+                        mar = {}
+                        for d in ('top', 'left', 'bottom', 'right'):
+                            e = tcMar.find(w(d))
+                            if e is not None:
+                                wv = e.get(f'{{{W}}}w')
+                                if wv is not None:
+                                    mar[d] = int(wv)
+                        if mar:
+                            tc_props['margin'] = mar
                 for p in cell.findall(w('p')):
                     pt = text_of_para(p)
                     pPr = fmt_para_props(p.find(w('pPr')))

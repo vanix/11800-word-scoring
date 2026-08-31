@@ -1061,9 +1061,12 @@ def check_table_font(student, ref, cfg):
     rows = s_tbls[0].get('table', {}).get('rows', [])
     cjk_want = cfg.get('cjk', '新細明體')
     en_want = cfg.get('en', 'Arial')
+    exclude = {tuple(c) for c in cfg.get('exclude', [])}
     issues = []
     for ri, row in enumerate(rows):
         for ci, cell in enumerate(row):
+            if (ri, ci) in exclude:
+                continue
             for para in cell.get('paras', []):
                 for t, rp in para.get('runs', []):
                     if not t.strip():
@@ -1093,6 +1096,110 @@ def check_table_fullwidth(student, ref, cfg):
             total += cell.get('text', '').count('(') + cell.get('text', '').count(')')
     if total > 0:
         return (10, f'表格內尚有{total}個半型括號')
+    return PASS
+
+# ── ● 首欄直書（文字方向）────────────────────────────
+def check_table_vertical(student, ref, cfg):
+    """檢查特定儲存格的文字方向是否為直書(textDirection=tbRlV)。
+    cfg.cells: [[ri,ci], ...] 0-based；cfg.dir 預設 tbRlV。"""
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    if not s_tbls:
+        return (cfg.get('points', 10), '無表格')
+    rows = s_tbls[0].get('table', {}).get('rows', [])
+    want = cfg.get('dir', 'tbRlV')
+    cells = cfg.get('cells', [])
+    issues = []
+    for (ri, ci) in cells:
+        if ri >= len(rows) or ci >= len(rows[ri]):
+            issues.append(f'({ri+1},{ci+1})缺格')
+            continue
+        got = rows[ri][ci].get('tcPr', {}).get('textDirection', '')
+        if got != want:
+            issues.append(f'({ri+1},{ci+1})未直書(方向{got or "無"})')
+    if issues:
+        return (cfg.get('points', 10), '; '.join(issues[:5]))
+    return PASS
+
+# ── ● 全部儲存格邊界 0（cell margin）─────────────────
+def check_table_margin0(student, ref, cfg):
+    """檢查表格所有儲存格邊界(cell margin)為 0。參考 tblCellMar 與各格 tcMar。"""
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    if not s_tbls:
+        return (cfg.get('points', 10), '無表格')
+    tbl = s_tbls[0].get('table', {})
+    issues = []
+    dir_label = {'top': '上', 'left': '左', 'bottom': '下', 'right': '右'}
+    tmar = tbl.get('cell_margins') or {}
+    for d in ('top', 'left', 'bottom', 'right'):
+        if d in tmar and tmar[d] != 0:
+            issues.append(f'表格{dir_label[d]}邊界{tmar[d]}')
+    for ri, row in enumerate(tbl.get('rows', [])):
+        for ci, cell in enumerate(row):
+            mar = cell.get('tcPr', {}).get('margin') or {}
+            for d, v in mar.items():
+                if v != 0:
+                    issues.append(f'({ri+1},{ci+1}){dir_label.get(d,d)}邊界{v}')
+    if issues:
+        return (cfg.get('points', 10), '儲存格邊界未設0; ' + '; '.join(issues[:5]))
+    return PASS
+
+# ── ● 特定儲存格畫斜線 ──────────────────────────────
+def check_table_diagonal(student, ref, cfg):
+    """檢查特定儲存格有交叉斜線(tl2br+tr2bl)。
+    cfg.cells: [[ri,ci], ...] 0-based。"""
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    if not s_tbls:
+        return (cfg.get('points', 10), '無表格')
+    rows = s_tbls[0].get('table', {}).get('rows', [])
+    cells = cfg.get('cells', [])
+    issues = []
+    for (ri, ci) in cells:
+        if ri >= len(rows) or ci >= len(rows[ri]):
+            issues.append(f'({ri+1},{ci+1})缺格')
+            continue
+        diag = rows[ri][ci].get('tcPr', {}).get('diag') or {}
+        if not (diag.get('tl2br') and diag.get('tr2bl')):
+            issues.append(f'({ri+1},{ci+1})無斜線')
+    if issues:
+        return (cfg.get('points', 10), '; '.join(issues[:5]))
+    return PASS
+
+# ── ● 特定儲存格格式（置中/凸排/標楷體+斜體）─────────
+def check_table_cellfmt(student, ref, cfg):
+    """依 cfg.spec 檢查特定儲存格的段落格式。
+    spec: [{"cell":[ri,ci], "jc":.., "vAlign":.., "hanging":true, "cjk":.., "italic":true}, ...]"""
+    s_tbls = [p for p in student.parse_paragraphs(include_tables=True) if p['type'] == 'table']
+    if not s_tbls:
+        return (cfg.get('points', 10), '無表格')
+    rows = s_tbls[0].get('table', {}).get('rows', [])
+    issues = []
+    for sp in cfg.get('spec', []):
+        ri, ci = sp['cell']
+        if ri >= len(rows) or ci >= len(rows[ri]):
+            issues.append(f'({ri+1},{ci+1})缺格')
+            continue
+        cell = rows[ri][ci]
+        pp = cell.get('paras', [])[0].get('pPr', {}) if cell.get('paras') else {}
+        if 'jc' in sp and pp.get('jc') != sp['jc']:
+            issues.append(f'({ri+1},{ci+1})對齊{pp.get("jc") or "無"}(應{sp["jc"]})')
+        if 'vAlign' in sp and cell.get('tcPr', {}).get('vAlign') != sp['vAlign']:
+            issues.append(f'({ri+1},{ci+1})垂直{cell.get("tcPr",{}).get("vAlign") or "無"}(應{sp["vAlign"]})')
+        if sp.get('hanging') and not (pp.get('ind') or {}).get('hanging'):
+            issues.append(f'({ri+1},{ci+1})無首行凸排')
+        if 'cjk' in sp:
+            ok = False
+            for para in cell.get('paras', []):
+                for t, rp in para.get('runs', []):
+                    if t.strip() and rp.get('font_eastAsia') == sp['cjk']:
+                        ok = True; break
+            if not ok:
+                issues.append(f'({ri+1},{ci+1})非{sp["cjk"]}')
+        if sp.get('italic'):
+            has_i = any(rp.get('i') for para in cell.get('paras', []) for _, rp in para.get('runs', []))
+            if not has_i:
+                issues.append(f'({ri+1},{ci+1})未斜體')
+    if issues:
+        return (cfg.get('points', 10), '; '.join(issues[:6]))
     return PASS
 
 # ── ● 頁首：三欄（中文西元年 / 空白 / 第X頁）────────
@@ -1154,6 +1261,10 @@ REGISTRY = {
     'table_align': check_table_align,
     'table_font': check_table_font,
     'table_fullwidth': check_table_fullwidth,
+    'table_vertical': check_table_vertical,
+    'table_margin0': check_table_margin0,
+    'table_diagonal': check_table_diagonal,
+    'table_cellfmt': check_table_cellfmt,
     'import_split': check_import_split,
     'paragraph_text': check_import_split,
     'title_para': check_import_split,
