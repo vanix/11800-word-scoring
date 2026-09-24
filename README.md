@@ -10,6 +10,23 @@
 - 扣分制評分，滿分 100，60 分及格
 - 每字扣分（※）以 Levenshtein 編輯距離計算，支援「少打一個字扣 3 分」
 - 上傳記錄自動寫入 `uploads/submissions.csv`
+- 繳交狀況看板：依 CSV 即時顯示各班座號的繳交燈號
+
+## 作業繳交狀況看板
+
+網址 `/status`（首頁「繳交狀況」連結），顯示班級 301–305 × 座號 1–40 的繳交燈號，每 15 秒自動更新。
+
+| 燈號 | 意義 |
+|---|---|
+| 🔴 紅 | 該階段尚未繳交（CSV 無記錄） |
+| 🟡 黃 | 已繳交，最新分數未滿 100 |
+| 🟢 綠 | 最新分數 = 100（滿分） |
+| ❔ 問號 | 同班級內同一 IP 有 ≥2 位**不同姓名**的繳交記錄（疑代繳，優先於顏色） |
+
+- 燈號依「題組＋階段」顯示，分數取該座號**最新**一筆
+- 同一人重複上傳（同 IP、同姓名）不算「多人」，不會誤判為問號
+- 滑鼠停在座號格可看姓名、分數、繳交時間與 IP
+- CSV 需含「階段」欄位（新版才會記錄）；舊檔無此欄則只會顯示未繳交
 
 ## 支援的題組與階段
 
@@ -217,14 +234,14 @@ python3 -c "from app import app; app.run(debug=False, host='0.0.0.0', port=5001)
 
 ```
 11800-word-scoring/
-├── app.py              # Flask 主程式
+├── app.py              # Flask 主程式（含 /status 繳交狀況看板）
 ├── scorer/
 │   ├── engine.py       # 評分引擎（階段過濾、by_stage 合併）
 │   ├── parser.py       # .docx 解析器（表格/圖片/頁首尾/版面）
 │   ├── checks.py       # 檢查函式（41 項）+ REGISTRY
 │   └── exams/          # 各題組 JSON 設定與各階段參考答案
-├── templates/          # HTML 模板
+├── templates/          # HTML 模板（index / result / status）
 ├── static/             # CSS 樣式
 ├── data/               # 題本與術科檔案
-└── uploads/            # 上傳檔案與評分記錄
+└── uploads/            # 上傳檔案與評分記錄（submissions.csv）
 ```

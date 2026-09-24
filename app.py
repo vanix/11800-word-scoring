@@ -19,14 +19,14 @@ def sanitize(s):
     s = re.sub(r'[^\w.\u4e00-\u9fff-]', '', s)
     return s.strip('._') or 'unknown'
 
-def log_submission(client_ip, student_name, class_id, seat_no, saved_name, exam_name, score):
+def log_submission(client_ip, student_name, class_id, seat_no, saved_name, exam_name, stage, score):
     is_new = not os.path.isfile(LOG_FILE)
     with open(LOG_FILE, 'a', newline='', encoding='utf-8-sig') as f:
         w = csv.writer(f)
         if is_new:
-            w.writerow(['時間', 'IP', '班級', '座號', '姓名', '檔案', '題組', '分數'])
+            w.writerow(['時間', 'IP', '班級', '座號', '姓名', '檔案', '題組', '階段', '分數'])
         w.writerow([datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    client_ip, class_id, seat_no, student_name, saved_name, exam_name, score])
+                    client_ip, class_id, seat_no, student_name, saved_name, exam_name, stage, score])
 
 @app.route('/')
 def index():
@@ -91,7 +91,7 @@ def score():
         saved_path = os.path.join(UPLOAD_DIR, saved_name)
         os.rename(tmp_path, saved_path)
         log_submission(client_ip, student_name, class_id, seat_no, saved_name,
-                       engine.config.get('name', exam_id), score)
+                       engine.config.get('name', exam_id), stage, score)
         return render_template('result.html', summary=summary,
                                exam_name=engine.config.get('name', exam_id),
                                saved_name=saved_name)
@@ -100,6 +100,105 @@ def score():
         except: pass
         flash(f'評分過程發生錯誤: {e}')
         return redirect(url_for('index'))
+
+CLASSES = ['301', '302', '303', '304', '305']
+MAX_SEAT = 40
+
+def load_submissions():
+    """回傳 CSV 記錄（dict list）。相容無「階段」欄位的舊檔。"""
+    rows = []
+    if not os.path.isfile(LOG_FILE):
+        return rows
+    with open(LOG_FILE, newline='', encoding='utf-8-sig') as f:
+        r = csv.reader(f)
+        header = next(r, None)
+        if not header:
+            return rows
+        col = {name: i for i, name in enumerate(header)}
+        def get(k, default=''):
+            i = col.get(k)
+            if i is None or i >= len(row):
+                return default
+            return row[i]
+        for row in r:
+            rows.append({
+                'time': get('時間'),
+                'ip': get('IP'),
+                'class_id': get('班級'),
+                'seat_no': get('座號'),
+                'name': get('姓名'),
+                'stage': get('階段'),
+                'score': get('分數'),
+            })
+    return rows
+
+@app.route('/status')
+def status():
+    exams = load_exam_list()
+    rows = load_submissions()
+
+    selected_exam = request.args.get('exam_id', '') or (exams[0]['id'] if exams else '')
+    selected_stage = request.args.get('stage', '')
+
+    exam_cfg = next((e for e in exams if e['id'] == selected_exam), None)
+    if not exam_cfg and exams:
+        selected_exam = exams[0]['id']
+        exam_cfg = exams[0]
+    stage_names = {s['id']: s['name'] for s in (exam_cfg['stages'] if exam_cfg else [])}
+    if selected_stage not in stage_names:
+        selected_stage = next(iter(stage_names), '')
+    current_stage_name = stage_names.get(selected_stage, '')
+
+    for row in rows:
+        row['class_id'] = row['class_id'].strip()
+        row['seat_no'] = row['seat_no'].strip()
+
+    # 同班級內同一 IP 有 ≥2 位不同姓名 → 標記問號（各階段皆算）
+    ip_shared = set()
+    by_cls_ip = {}
+    for row in rows:
+        by_cls_ip.setdefault((row['class_id'], row['ip']), set()).add(row['name'])
+    for (cid, ip), names in by_cls_ip.items():
+        if len(names) >= 2:
+            ip_shared.add((cid, ip))
+
+    # 該題組選的階段：每 (班級, 座號) 取最新一筆
+    latest = {}
+    for row in rows:
+        if row['stage'] != selected_stage:
+            continue
+        key = (row['class_id'], row['seat_no'])
+        if key not in latest or row['time'] > latest[key]['time']:
+            latest[key] = row
+
+    classes = []
+    for cid in CLASSES:
+        seats = []
+        for n in range(1, MAX_SEAT + 1):
+            row = latest.get((cid, str(n)))
+            seat = {'seat': n, 'name': '', 'ip': '', 'score': '', 'time': '',
+                    'status': 'none'}
+            if row:
+                seat.update(name=row['name'], ip=row['ip'], score=row['score'],
+                            time=row['time'])
+                try:
+                    full = int(row['score']) >= 100
+                except (ValueError, TypeError):
+                    full = False
+                if (cid, row['ip']) in ip_shared:
+                    seat['status'] = 'dup'
+                elif full:
+                    seat['status'] = 'pass'
+                else:
+                    seat['status'] = 'fail'
+            seats.append(seat)
+        classes.append({'class_id': cid, 'seats': seats})
+
+    return render_template('status.html', exams=exams, selected_exam=selected_exam,
+                           selected_stage=selected_stage,
+                           current_stage_name=current_stage_name,
+                           exam_stages=(exam_cfg['stages'] if exam_cfg else []),
+                           classes=classes)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

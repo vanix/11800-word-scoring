@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="15">
+<title>作業繳交狀況</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+  <h1>作業繳交狀況</h1>
+  <div class="data-links">
+    <a href="/">返回評分</a>
+  </div>
+  <form action="/status" method="get" class="status-form">
+    <div class="form-group">
+      <label for="exam_id">題組：</label>
+      <select name="exam_id" id="exam_id">
+        {% for e in exams %}
+        <option value="{{ e.id }}" {{ 'selected' if e.id == selected_exam else '' }}>{{ e.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="stage">階段：</label>
+      <select name="stage" id="stage">
+        {% for s in exam_stages %}
+        <option value="{{ s.id }}" {{ 'selected' if s.id == selected_stage else '' }}>{{ s.id }}. {{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn-sm">查詢</button>
+  </form>
+  <p class="status-note">目前顯示：{{ selected_exam }} · 階段 {{ selected_stage }} {{ current_stage_name }}｜每 15 秒自動更新</p>
+  <div class="legend">
+    <span><i class="dot dot-none"></i>未繳交</span>
+    <span><i class="dot dot-fail"></i>未滿分</span>
+    <span><i class="dot dot-pass"></i>滿分</span>
+    <span><i class="dot dot-dup"></i>同 IP 多人</span>
+  </div>
+  {% for c in classes %}
+  <div class="class-block">
+    <h2>班級 {{ c.class_id }}</h2>
+    <div class="seat-grid">
+      {% for s in c.seats %}
+      <div class="seat {{ 'seat-' + s.status }}"
+           {% if s.name %}title="{{ s.seat }}號 {{ s.name }}｜{{ s.score }} 分｜{{ s.time }}{% if s.status == 'dup' %}｜IP {{ s.ip }} 疑多人{% endif %}"{% endif %}>
+        <span class="seat-no">{{ s.seat }}</span>
+        {% if s.status == 'dup' %}<span class="seat-mark">?</span>
+        {% else %}<i class="dot dot-{{ s.status }}"></i>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>

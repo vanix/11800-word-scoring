@@ -11,6 +11,7 @@
   <h1>電腦軟體應用丙級 · 文書處理評分</h1>
   <div class="data-links">
     <a href="/data/電丙題本.pdf" target="_blank">電丙題本</a>
+    <a href="/status">繳交狀況</a>
     <a href="https://www.youtube.com/playlist?list=PLN9g1rvyo05rYFCEqocboBP6U8XdOl2w9" target="_blank">教學影片</a>
   </div>
   {% with messages = get_flashed_messages() %}
@@ -35,20 +36,20 @@
       </select>
     </div>
     <div class="form-group">
-      <label for="student_name">姓名：</label>
-      <input type="text" name="student_name" id="student_name" placeholder="請輸入姓名" required>
+      <label for="class_id">班級：</label>
+      <select name="class_id" id="class_id" required>
+        <option value="">— 請選擇 —</option>
+        <option value="301">301</option>
+        <option value="302">302</option>
+        <option value="303">303</option>
+        <option value="304">304</option>
+        <option value="305">305</option>
+      </select>
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label for="class_id">班級：</label>
-        <select name="class_id" id="class_id" required>
-          <option value="">— 請選擇 —</option>
-          <option value="301">301</option>
-          <option value="302">302</option>
-          <option value="303">303</option>
-          <option value="304">304</option>
-          <option value="305">305</option>
-        </select>
+        <label for="student_name">姓名：</label>
+        <input type="text" name="student_name" id="student_name" placeholder="請輸入姓名" required>
       </div>
       <div class="form-group">
         <label for="seat_no">座號：</label>
@@ -75,7 +76,7 @@ function updateStages(){
   if(!oo || !oo.dataset.stages) return;
   JSON.parse(oo.dataset.stages).forEach(function(s){
     var op = document.createElement('option');
-    op.value = s.id; op.textContent = s.name;
+    op.value = s.id; op.textContent = s.id + '. ' + s.name;
     st.appendChild(op);
   });
 }
