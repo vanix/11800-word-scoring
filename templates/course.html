@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>課程資料</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+  <h1>課程資料</h1>
+  <div class="data-links">
+    <a href="/">返回評分</a>
+  </div>
+
+  <div class="course-section">
+    <h2>電丙題本</h2>
+    <p><a class="btn-back" href="/data/電丙題本.pdf" target="_blank">開啟電丙題本 PDF</a></p>
+  </div>
+
+  <div class="course-section">
+    <h2>教學影片</h2>
+    <div class="video-wrap">
+      <iframe src="https://www.youtube.com/embed/videoseries?list=PLN9g1rvyo05rYFCEqocboBP6U8XdOl2w9"
+              title="教學影片播放清單" frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen></iframe>
+    </div>
+  </div>
+
+  <div class="course-section">
+    <h2>打字要求</h2>
+    <div class="img-grid">
+      {% for n in ['一', '二', '三', '四', '五'] %}
+      <div class="img-card">
+        <a href="/data/題組{{ n }}打字練習.png" target="_blank">
+          <img src="/data/題組{{ n }}打字練習.png" alt="題組{{ n }}打字練習">
+        </a>
+        <p>題組{{ n }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+</body>
+</html>

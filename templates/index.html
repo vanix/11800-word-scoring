@@ -10,9 +10,9 @@
 <div class="container">
   <h1>電腦軟體應用丙級 · 文書處理評分</h1>
   <div class="data-links">
-    <a href="/data/電丙題本.pdf" target="_blank">電丙題本</a>
+    <a href="/course">課程資料</a>
+    <a href="/exam">上機考要求</a>
     <a href="/status">繳交狀況</a>
-    <a href="https://www.youtube.com/playlist?list=PLN9g1rvyo05rYFCEqocboBP6U8XdOl2w9" target="_blank">教學影片</a>
   </div>
   {% with messages = get_flashed_messages() %}
     {% if messages %}
@@ -39,6 +39,8 @@
       <label for="class_id">班級：</label>
       <select name="class_id" id="class_id" required>
         <option value="">— 請選擇 —</option>
+        <option value="111">111</option>
+        <option value="112">112</option>
         <option value="301">301</option>
         <option value="302">302</option>
         <option value="303">303</option>

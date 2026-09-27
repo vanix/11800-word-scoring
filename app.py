@@ -38,6 +38,14 @@ def index():
 def serve_data(filename):
     return send_from_directory('data', filename)
 
+@app.route('/course')
+def course():
+    return render_template('course.html')
+
+@app.route('/exam')
+def exam():
+    return render_template('exam.html')
+
 @app.route('/score', methods=['POST'])
 def score():
     exam_id = request.form.get('exam_id', '')
@@ -101,7 +109,8 @@ def score():
         flash(f'評分過程發生錯誤: {e}')
         return redirect(url_for('index'))
 
-CLASSES = ['301', '302', '303', '304', '305']
+CLASSES = ['111', '112', '301', '302', '303', '304', '305']
+DEFAULT_CLASS = '301'
 MAX_SEAT = 40
 
 def load_submissions():
@@ -194,11 +203,18 @@ def status():
             seats.append(seat)
         classes.append({'class_id': cid, 'seats': seats})
 
+    # 只顯示選定班級
+    selected_class = request.args.get('class_id', '')
+    if selected_class not in CLASSES:
+        selected_class = DEFAULT_CLASS
+    shown = next((c for c in classes if c['class_id'] == selected_class), None)
+
     return render_template('status.html', exams=exams, selected_exam=selected_exam,
                            selected_stage=selected_stage,
                            current_stage_name=current_stage_name,
                            exam_stages=(exam_cfg['stages'] if exam_cfg else []),
-                           classes=classes)
+                           class_list=CLASSES, selected_class=selected_class,
+                           shown=shown)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
