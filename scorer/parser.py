@@ -40,6 +40,11 @@ def fmt_run_props(rPr):
             v = rFonts.get(f'{{{W}}}{k}')
             if v:
                 props[f'font_{k}'] = v
+        for k, t in [('ascii', 'asciiTheme'), ('hAnsi', 'hAnsiTheme'),
+                     ('eastAsia', 'eastAsiaTheme'), ('cs', 'cstheme')]:
+            v = rFonts.get(f'{{{W}}}{t}')
+            if v:
+                props[f'font_{k}Theme'] = v
     sz = rPr.find(w('sz'))
     if sz is not None:
         props['sz'] = sz.get(f'{{{W}}}val')
@@ -165,6 +170,15 @@ class DocxParser:
         self.zip = zipfile.ZipFile(path)
         self.doc_xml = self._read_xml('word/document.xml')
         self.styles_xml = self._read_xml('word/styles.xml')
+        self.theme_fonts = self._parse_theme_fonts(self._read_xml('word/theme/theme1.xml'))
+        self.styles_by_id = {}
+        if self.styles_xml is not None:
+            for s in self.styles_xml.findall(w('style')):
+                self.styles_by_id[s.get(f'{{{W}}}styleId', '')] = s
+        dflt = None
+        if self.styles_xml is not None:
+            dflt = self.styles_xml.find(f'.//{w("docDefaults")}/{w("rPrDefault")}/{w("rPr")}')
+        self.doc_defaults_rpr = fmt_run_props(dflt)
         self._rels = self._read_rels()
         self.header_xml = self._read_default_hf('header')
         self.footer_xml = self._read_default_hf('footer')
@@ -235,8 +249,49 @@ class DocxParser:
             result['col_space'] = cols.get(f'{{{W}}}space', '0')
         return result
 
+    def _parse_theme_fonts(self, el):
+        fonts = {}
+        if el is None:
+            return fonts
+        for kind in ('major', 'minor'):
+            fe = el.find('.//' + a(kind + 'Font'))
+            if fe is None:
+                continue
+            latin = fe.find(a('latin'))
+            ea = fe.find(a('ea'))
+            cs = fe.find(a('cs'))
+            ea_name = ea.get('typeface', '') if ea is not None else ''
+            if not ea_name:
+                scripts = {f.get('script'): f.get('typeface') for f in fe.findall(a('font'))}
+                for script in ('Hant', 'Hans', 'Jpan', 'Hang'):
+                    if scripts.get(script):
+                        ea_name = scripts[script]
+                        break
+            fonts[kind + 'HAnsi'] = latin.get('typeface', '') if latin is not None else ''
+            fonts[kind + 'EastAsia'] = ea_name
+            fonts[kind + 'Bidi'] = cs.get('typeface', '') if cs is not None else ''
+        return fonts
+
+    def resolve_style_rpr(self, style_id):
+        chain = []
+        seen = set()
+        sid = style_id
+        while sid and sid not in seen:
+            seen.add(sid)
+            s = self.styles_by_id.get(sid)
+            if s is None:
+                break
+            chain.append(s)
+            sid = get_attr(s.find(w('basedOn')), 'val')
+        rpr = dict(self.doc_defaults_rpr)
+        for s in reversed(chain):
+            el = s.find(w('rPr'))
+            if el is not None:
+                rpr.update(fmt_run_props(el))
+        return rpr
+
     def parse_header_footer(self):
-        result = {'header': None, 'footer': None}
+        result = {'header': None, 'footer': None, 'theme_fonts': self.theme_fonts}
         if self.header_xml is not None:
             para = self.header_xml.find(f'.//{w("p")}')
             if para is not None:
@@ -248,13 +303,7 @@ class DocxParser:
                     'pStyle': pStyle, 'text': full_text,
                     'runs': runs, 'pPr': fmt_para_props(pPr),
                 }
-        if self.styles_xml is not None:
-            for s in self.styles_xml.findall(w('style')):
-                sid = s.get(f'{{{W}}}styleId', '')
-                if sid == 'a6':
-                    result['header_style'] = self._style_to_dict(s)
-                elif sid == 'a8':
-                    result['footer_style'] = self._style_to_dict(s)
+                result['header_style'] = self._resolve_hf_style(pStyle)
         if self.footer_xml is not None:
             para = self.footer_xml.find(f'.//{w("p")}')
             if para is not None:
@@ -266,19 +315,13 @@ class DocxParser:
                     'pStyle': pStyle, 'text': full_text,
                     'runs': runs, 'pPr': fmt_para_props(pPr),
                 }
+                result['footer_style'] = self._resolve_hf_style(pStyle)
         return result
 
-    def _style_to_dict(self, s_elem):
-        d = {}
-        d['name'] = get_attr(s_elem.find(w('name')), 'val')
-        d['basedOn'] = get_attr(s_elem.find(w('basedOn')), 'val')
-        pPr = s_elem.find(w('pPr'))
-        if pPr is not None:
-            d['pPr'] = fmt_para_props(pPr)
-        rPr = s_elem.find(w('rPr'))
-        if rPr is not None:
-            d['rPr'] = fmt_run_props(rPr)
-        return d
+    def _resolve_hf_style(self, pStyle):
+        if pStyle and pStyle in self.styles_by_id:
+            return {'styleId': pStyle, 'rPr': self.resolve_style_rpr(pStyle)}
+        return {'styleId': pStyle, 'rPr': dict(self.doc_defaults_rpr)}
 
     def parse_paragraphs(self, include_tables=False):
         paras = []

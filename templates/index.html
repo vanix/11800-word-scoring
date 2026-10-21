@@ -21,32 +21,30 @@
   {% endwith %}
   <form action="/score" method="post" enctype="multipart/form-data" class="upload-form">
     <div class="form-group">
-      <label for="exam_id">選擇題組：</label>
-      <select name="exam_id" id="exam_id" required onchange="updateStages()">
-        <option value="">— 請選擇 —</option>
+      <label>選擇題組：</label>
+      <div class="choice-group">
         {% for e in exams %}
-        <option value="{{ e.id }}" data-stages='{{ e.stages | tojson }}'>{{ e.name }}</option>
+        <input type="radio" name="exam_id" id="exam-{{ e.id }}" value="{{ e.id }}"
+               data-stages='{{ e.stages | tojson }}' onchange="updateStages()" required>
+        <label for="exam-{{ e.id }}">{{ e.name }}</label>
         {% endfor %}
-      </select>
+      </div>
     </div>
     <div class="form-group">
-      <label for="stage">選擇階段：</label>
-      <select name="stage" id="stage" required>
-        <option value="">— 請先選題組 —</option>
-      </select>
+      <label>選擇階段：</label>
+      <div class="choice-group" id="stage-buttons">
+        <span class="choice-hint">請先選題組</span>
+      </div>
     </div>
     <div class="form-group">
-      <label for="class_id">班級：</label>
-      <select name="class_id" id="class_id" required>
-        <option value="">— 請選擇 —</option>
-        <option value="111">111</option>
-        <option value="112">112</option>
-        <option value="301">301</option>
-        <option value="302">302</option>
-        <option value="303">303</option>
-        <option value="304">304</option>
-        <option value="305">305</option>
-      </select>
+      <label>班級：</label>
+      <div class="choice-group">
+        {% for cid in ['111', '112', '301', '302', '303', '304', '305'] %}
+        <input type="radio" name="class_id" id="cls-{{ cid }}" value="{{ cid }}"
+               {{ 'checked' if cid == '301' }} required>
+        <label for="cls-{{ cid }}">{{ cid }}</label>
+        {% endfor %}
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -71,15 +69,35 @@
 </div>
 <script>
 function updateStages(){
-  var sel = document.getElementById('exam_id');
-  var st = document.getElementById('stage');
-  var oo = sel.options[sel.selectedIndex];
-  st.innerHTML = '<option value="">— 請選擇階段 —</option>';
-  if(!oo || !oo.dataset.stages) return;
-  JSON.parse(oo.dataset.stages).forEach(function(s){
-    var op = document.createElement('option');
-    op.value = s.id; op.textContent = s.id + '. ' + s.name;
-    st.appendChild(op);
+  var exam = document.querySelector('input[name="exam_id"]:checked');
+  var box = document.getElementById('stage-buttons');
+  box.innerHTML = '';
+  if (!exam) {
+    box.innerHTML = '<span class="choice-hint">請先選題組</span>';
+    return;
+  }
+  var stages = JSON.parse(exam.dataset.stages || '[]');
+  stages.forEach(function(s){
+    var input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'stage';
+    input.id = 'stage-' + s.id;
+    input.value = s.id;
+    input.required = true;
+
+    var label = document.createElement('label');
+    label.htmlFor = input.id;
+    var num = document.createElement('span');
+    num.className = 'chip-num';
+    num.textContent = s.id;
+    var text = document.createElement('span');
+    text.className = 'chip-text';
+    text.textContent = s.name;
+    label.appendChild(num);
+    label.appendChild(text);
+
+    box.appendChild(input);
+    box.appendChild(label);
   });
 }
 </script>

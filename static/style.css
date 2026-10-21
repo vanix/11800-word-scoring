@@ -93,3 +93,15 @@ button:hover { background: #1d4ed8; }
 .exam-requirements ol { margin-left: 22px; }
 .exam-requirements li { margin-bottom: 6px; padding-left: 4px; }
 .exam-pending { color: #9ca3af; font-style: italic; }
+
+/* Choice buttons (upload form) */
+.choice-group { display: flex; flex-wrap: wrap; gap: 10px; }
+.choice-group input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.choice-group label { display: inline-flex; align-items: center; justify-content: center; margin: 0; padding: 9px 18px; border: 1px solid #d7dbe3; border-radius: 8px; background: #fff; font-size: 15px; font-weight: 600; color: #444; cursor: pointer; user-select: none; transition: border-color .15s, background .15s, color .15s; }
+.choice-group label:hover { border-color: #93b4f5; background: #f5f9ff; }
+.choice-group input:checked + label { border-color: #2563eb; background: #2563eb; color: #fff; box-shadow: 0 2px 8px rgba(37, 99, 235, .25); }
+.choice-group input:focus-visible + label { outline: 2px solid #2563eb; outline-offset: 2px; }
+#stage-buttons label { flex-direction: column; align-items: flex-start; gap: 0; padding: 7px 16px; line-height: 1.3; text-align: left; }
+#stage-buttons .chip-num { font-size: 15px; }
+#stage-buttons .chip-text { font-size: 12px; font-weight: 500; opacity: .85; }
+.choice-hint { color: #9ca3af; font-size: 14px; padding: 9px 0; }

@@ -75,6 +75,16 @@ def check_justify(student, ref, cfg):
     return PASS
 
 # ── ● 頁首字型 ─────────────────────────────────────
+def _hf_font_name(rp, style_rpr, theme, key):
+    for src in (rp, style_rpr):
+        v = src.get(f'font_{key}')
+        if v:
+            return v
+        tv = src.get(f'font_{key}Theme')
+        if tv and theme.get(tv):
+            return theme[tv]
+    return None
+
 def _hf_font_check(student, zone, cfg):
     hf = student.parse_header_footer()
     zone_cn = '頁首' if zone == 'header' else '頁尾'
@@ -82,26 +92,26 @@ def _hf_font_check(student, zone, cfg):
     if not el:
         return (10, f'無{zone_cn}')
     style_rpr = (hf.get(zone + '_style') or {}).get('rPr') or {}
+    theme = hf.get('theme_fonts') or {}
     expected_en = cfg.get('en_font', 'Times New Roman')
-    allowed_cjk = cfg.get('cjk_fonts') or ['新細明體', '細明體']
-    if 'size' in cfg:
-        expected_half = int(cfg['size']) * 2
-    else:
-        expected_half = int(cfg.get('font_size', '20'))
+    allowed_cjk = cfg.get('cjk_fonts') or ['新細明體', '細明體', 'PMingLiU', 'MingLiU']
     issues = []
     for t, rp in el['runs']:
         if not t.strip():
             continue
         cls = classify_text(t)
-        ea = rp.get('font_eastAsia') or style_rpr.get('font_eastAsia')
-        af = rp.get('font_ascii') or style_rpr.get('font_ascii')
-        sz = rp.get('sz') or style_rpr.get('sz')
-        if cls in ('chinese', 'mixed') and ea and ea not in allowed_cjk:
-            issues.append(f'中文字型「{ea}」(應{"或".join(allowed_cjk)})')
-        if cls in ('english', 'digit', 'mixed') and af and af != expected_en:
-            issues.append(f'英數字型「{af}」(應{expected_en})')
-        if sz and sz.isdigit() and int(sz) != expected_half:
-            issues.append(f'大小{halfpt_to_pt(sz)}pt(應{cfg.get("size") or halfpt_to_pt(str(expected_half))}pt)')
+        if cls in ('chinese', 'mixed'):
+            ea = _hf_font_name(rp, style_rpr, theme, 'eastAsia')
+            if not ea:
+                issues.append(f'中文字型未設定(應{"或".join(allowed_cjk)})')
+            elif ea not in allowed_cjk:
+                issues.append(f'中文字型「{ea}」(應{"或".join(allowed_cjk)})')
+        if cls in ('english', 'digit', 'mixed'):
+            af = _hf_font_name(rp, style_rpr, theme, 'ascii')
+            if not af:
+                issues.append(f'英數字型未設定(應{expected_en})')
+            elif af != expected_en:
+                issues.append(f'英數字型「{af}」(應{expected_en})')
     if issues:
         return (10, f'{zone_cn}字型: ' + '; '.join(dict.fromkeys(issues)))
     return PASS

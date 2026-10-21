@@ -1,4 +1,4 @@
-import os, re, csv, datetime
+import os, re, csv, datetime, unicodedata
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
 
 from scorer.engine import load_exam_list, ScoringEngine
@@ -18,6 +18,16 @@ def allowed_file(fname):
 def sanitize(s):
     s = re.sub(r'[^\w.\u4e00-\u9fff-]', '', s)
     return s.strip('._') or 'unknown'
+
+def norm_seat(v):
+    """座號正規化：全形轉半形、去空白與尾字「號」、數字去前導零。"""
+    s = unicodedata.normalize('NFKC', str(v or '')).strip()
+    s = re.sub(r'\s+', '', s)
+    s = re.sub(r'號$', '', s)
+    if re.fullmatch(r'\d+', s):
+        return str(int(s))
+    return s
+
 
 def log_submission(client_ip, student_name, class_id, seat_no, saved_name, exam_name, stage, score):
     is_new = not os.path.isfile(LOG_FILE)
@@ -65,9 +75,15 @@ def score():
         flash('請選擇班級')
         return redirect(url_for('index'))
 
-    seat_no = request.form.get('seat_no', '').strip()
+    seat_no = norm_seat(request.form.get('seat_no', ''))
     if not seat_no:
         flash('請輸入座號')
+        return redirect(url_for('index'))
+    if not re.fullmatch(r'\d+', seat_no):
+        flash('座號請輸入數字')
+        return redirect(url_for('index'))
+    if not (1 <= int(seat_no) <= MAX_SEAT):
+        flash(f'座號需在 1-{MAX_SEAT} 之間')
         return redirect(url_for('index'))
 
     file = request.files.get('file')
@@ -160,7 +176,7 @@ def status():
 
     for row in rows:
         row['class_id'] = row['class_id'].strip()
-        row['seat_no'] = row['seat_no'].strip()
+        row['seat_no'] = norm_seat(row['seat_no'])
 
     # 同班級內同一 IP 有 ≥2 位不同姓名 → 標記問號（各階段皆算）
     ip_shared = set()
