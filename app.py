@@ -63,7 +63,19 @@ def score():
         flash('請選擇題組')
         return redirect(url_for('index'))
 
+    exam_meta = next((e for e in load_exam_list() if e['id'] == exam_id), None)
+    if exam_meta is None:
+        flash('題組不存在')
+        return redirect(url_for('index'))
+
     stage = request.form.get('stage', '').strip()
+    stage_ids = [s['id'] for s in (exam_meta.get('stages') or [])]
+    if not stage:
+        flash('請選擇階段')
+        return redirect(url_for('index'))
+    if stage not in stage_ids:
+        flash('階段不正確，請重新選擇')
+        return redirect(url_for('index'))
 
     student_name = request.form.get('student_name', '').strip()
     if not student_name:
@@ -82,8 +94,8 @@ def score():
     if not re.fullmatch(r'\d+', seat_no):
         flash('座號請輸入數字')
         return redirect(url_for('index'))
-    if not (1 <= int(seat_no) <= MAX_SEAT):
-        flash(f'座號需在 1-{MAX_SEAT} 之間')
+    if not (0 <= int(seat_no) <= MAX_SEAT):
+        flash(f'座號需在 0-{MAX_SEAT} 之間')
         return redirect(url_for('index'))
 
     file = request.files.get('file')
@@ -127,7 +139,7 @@ def score():
 
 CLASSES = ['111', '112', '301', '302', '303', '304', '305']
 DEFAULT_CLASS = '301'
-MAX_SEAT = 40
+MAX_SEAT = 50
 
 def load_submissions():
     """回傳 CSV 記錄（dict list）。相容無「階段」欄位的舊檔。"""
@@ -152,6 +164,7 @@ def load_submissions():
                 'class_id': get('班級'),
                 'seat_no': get('座號'),
                 'name': get('姓名'),
+                'exam': get('題組'),
                 'stage': get('階段'),
                 'score': get('分數'),
             })
@@ -177,6 +190,8 @@ def status():
     for row in rows:
         row['class_id'] = row['class_id'].strip()
         row['seat_no'] = norm_seat(row['seat_no'])
+        row['exam'] = (row['exam'] or '').strip()
+        row['stage'] = (row['stage'] or '').strip()
 
     # 同班級內同一 IP 有 ≥2 位不同姓名 → 標記問號（各階段皆算）
     ip_shared = set()
@@ -188,30 +203,48 @@ def status():
             ip_shared.add((cid, ip))
 
     # 該題組選的階段：每 (班級, 座號) 取最新一筆
+    exam_names = {selected_exam}
+    if exam_cfg:
+        exam_names.add(exam_cfg['name'])
+    def exam_ok(row):
+        return not row['exam'] or row['exam'] in exam_names
+
     latest = {}
+    latest_legacy = {}
     for row in rows:
-        if row['stage'] != selected_stage:
+        if not exam_ok(row):
             continue
         key = (row['class_id'], row['seat_no'])
-        if key not in latest or row['time'] > latest[key]['time']:
-            latest[key] = row
+        if row['stage']:
+            if row['stage'] != selected_stage:
+                continue
+            if key not in latest or row['time'] > latest[key]['time']:
+                latest[key] = row
+        elif key not in latest_legacy or row['time'] > latest_legacy[key]['time']:
+            latest_legacy[key] = row
 
     classes = []
     for cid in CLASSES:
         seats = []
-        for n in range(1, MAX_SEAT + 1):
+        for n in range(0, MAX_SEAT + 1):
             row = latest.get((cid, str(n)))
+            legacy = False
+            if row is None:
+                row = latest_legacy.get((cid, str(n)))
+                legacy = row is not None
             seat = {'seat': n, 'name': '', 'ip': '', 'score': '', 'time': '',
                     'status': 'none'}
             if row:
                 seat.update(name=row['name'], ip=row['ip'], score=row['score'],
-                            time=row['time'])
+                            time=row['time'], stage_missing=legacy)
                 try:
                     full = int(row['score']) >= 100
                 except (ValueError, TypeError):
                     full = False
                 if (cid, row['ip']) in ip_shared:
                     seat['status'] = 'dup'
+                elif legacy:
+                    seat['status'] = 'fail'
                 elif full:
                     seat['status'] = 'pass'
                 else:

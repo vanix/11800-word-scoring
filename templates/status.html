@@ -52,7 +52,7 @@
     <div class="seat-grid">
       {% for s in shown.seats %}
       <div class="seat {{ 'seat-' + s.status }}"
-           {% if s.name %}title="{{ s.seat }}號 {{ s.name }}｜{{ s.score }} 分｜{{ s.time }}{% if s.status == 'dup' %}｜IP {{ s.ip }} 疑多人{% endif %}"{% endif %}>
+           {% if s.name %}title="{{ s.seat }}號 {{ s.name }}｜{{ s.score }} 分｜{{ s.time }}{% if s.stage_missing %}｜階段未記錄，請重新上傳{% endif %}{% if s.status == 'dup' %}｜IP {{ s.ip }} 疑多人{% endif %}"{% endif %}>
         <span class="seat-no">{{ s.seat }}</span>
         {% if s.status == 'dup' %}<span class="seat-mark">?</span>
         {% else %}<i class="dot dot-{{ s.status }}"></i>{% endif %}
