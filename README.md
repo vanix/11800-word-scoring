@@ -44,6 +44,13 @@
 
 兩頁皆可從首頁上方連結進入。
 
+
+## 操作說明影片（評分系統使用教學）
+
+[![題組一文書處理教學影片 1](https://img.youtube.com/vi/_-H41a_Hd9M/maxresdefault.jpg)](https://youtu.be/_-H41a_Hd9M)
+
+[![題組一文書處理教學影片 2](https://img.youtube.com/vi/MzBlxfAiS30/maxresdefault.jpg)](https://youtu.be/MzBlxfAiS30)
+
 ## 支援的題組與階段
 
 | 題組 | 階段 |
